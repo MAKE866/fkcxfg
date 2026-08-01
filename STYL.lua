@@ -1021,6 +1021,19 @@ Tab6:CreateButton({
     end,
 })
 
+Tab1:CreateToggle({
+    Name = "马铃薯模式",
+    CurrentValue = false,
+    Flag = "PotatoModeToggle",
+    Ext = true,
+    Callback = function(Value)
+        pcall(function()
+            ReplicatedStorage.SendSetting:FireServer("PotatoMode", Value)
+        end)
+        StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启马铃薯模式" or "已关闭马铃薯模式", Duration = 2, Icon = "rbxassetid://128981664025072" })
+    end,
+})
+
 Tab7:CreateToggle({
     Name = "透视ST角色",
     CurrentValue = false,
@@ -1151,10 +1164,18 @@ end
 local function handleLivingCharacter(character)
     local player = getPlayerFromCharacter(character)
     if not player then return end
-    
+
     if character:FindFirstChild("PlayerESP") then return end
-    
-    task.wait(0.2)
+
+    local head = character:FindFirstChild("Head")
+    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+    if not head or not humanoid then
+        task.wait(0.5)
+        head = character:FindFirstChild("Head")
+        humanoid = character:FindFirstChildWhichIsA("Humanoid")
+        if not head or not humanoid then return end
+    end
+
     createHighlight(character, player)
 end
 
