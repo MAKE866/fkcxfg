@@ -1021,19 +1021,6 @@ Tab6:CreateButton({
     end,
 })
 
-Tab1:CreateToggle({
-    Name = "马铃薯模式",
-    CurrentValue = false,
-    Flag = "PotatoModeToggle",
-    Ext = true,
-    Callback = function(Value)
-        pcall(function()
-            ReplicatedStorage.SendSetting:FireServer("PotatoMode", Value)
-        end)
-        StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启马铃薯模式" or "已关闭马铃薯模式", Duration = 2, Icon = "rbxassetid://128981664025072" })
-    end,
-})
-
 Tab7:CreateToggle({
     Name = "透视ST角色",
     CurrentValue = false,
@@ -1052,6 +1039,11 @@ Tab7:CreateToggle({
         end
     end,
 })
+
+local playerEspEnabled = false
+local playerEspConnections = {}
+local playerDisplayEnabled = false
+local playerDisplayThread = nil
 
 local function getPlayerFromCharacter(character)
     for _, player in ipairs(Players:GetPlayers()) do
@@ -1191,30 +1183,63 @@ local function scanLiving()
 end
 
 local function setupLivingWatcher()
+    if not playerEspEnabled then return end
     local livingFolder = Workspace:FindFirstChild("Living")
     if not livingFolder then
-        Workspace.ChildAdded:Connect(function(child)
+        local conn = Workspace.ChildAdded:Connect(function(child)
             if child.Name == "Living" then
                 setupLivingWatcher()
             end
         end)
+        table.insert(playerEspConnections, conn)
         return
     end
     
     scanLiving()
     
-    livingFolder.ChildAdded:Connect(function(character)
+    local addConn = livingFolder.ChildAdded:Connect(function(character)
         if character:IsA("Model") and character:FindFirstChild("Humanoid") then
             handleLivingCharacter(character)
         end
     end)
+    table.insert(playerEspConnections, addConn)
     
-    livingFolder.ChildRemoved:Connect(function(character)
+    local remConn = livingFolder.ChildRemoved:Connect(function(character)
         removeESP(character)
     end)
+    table.insert(playerEspConnections, remConn)
 end
 
-setupLivingWatcher()
+local function clearPlayerESP()
+    for _, conn in ipairs(playerEspConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    playerEspConnections = {}
+    local livingFolder = Workspace:FindFirstChild("Living")
+    if livingFolder then
+        for _, character in ipairs(livingFolder:GetChildren()) do
+            removeESP(character)
+        end
+    end
+end
+
+Tab7:CreateToggle({
+    Name = "玩家透视",
+    CurrentValue = false,
+    Flag = "PlayerEspToggle",
+    Ext = true,
+    Callback = function(Value)
+        playerEspEnabled = Value
+        if Value then
+            clearPlayerESP()
+            setupLivingWatcher()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启玩家透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            clearPlayerESP()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭玩家透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PlayerCountUI"
@@ -1282,14 +1307,39 @@ local function updatePlayerCount()
     downedLabel.Text = "倒地: " .. downedCount
 end
 
-local function startUpdating()
-    while true do
-        updatePlayerCount()
-        task.wait(1)
+local function stopUpdating()
+    if playerDisplayThread then
+        task.cancel(playerDisplayThread)
+        playerDisplayThread = nil
     end
 end
 
-coroutine.wrap(startUpdating)()
+local function startUpdating()
+    if playerDisplayThread then return end
+    playerDisplayThread = task.spawn(function()
+        while playerDisplayEnabled do
+            updatePlayerCount()
+            task.wait(1)
+        end
+    end)
+end
+
+Tab7:CreateToggle({
+    Name = "玩家显示",
+    CurrentValue = false,
+    Flag = "PlayerDisplayToggle",
+    Ext = true,
+    Callback = function(Value)
+        playerDisplayEnabled = Value
+        if Value then
+            startUpdating()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启玩家显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            stopUpdating()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭玩家显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
 
 task.spawn(function()
     StarterGui:SetCore("SendNotification", { Title = "银狼脚本已加载", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
