@@ -716,6 +716,44 @@ Tab1:CreateButton({
     end,
 })
 
+local missileLoopRunning = false
+local missileJob = nil
+
+Tab1:CreateToggle({
+    Name = "删除导弹特效",
+    CurrentValue = false,
+    Flag = "DeleteMissileToggle",
+    Ext = true,
+    Callback = function(Value)
+        if Value then
+            if not missileLoopRunning then
+                missileLoopRunning = true
+                missileJob = task.spawn(function()
+                    while missileLoopRunning do
+                        local effectsFolder = Workspace:FindFirstChild("Effects")
+                        if effectsFolder then
+                            for _, v in ipairs(effectsFolder:GetChildren()) do
+                                if v.Name == "MissileBOOM" then
+                                    pcall(function() v:Destroy() end)
+                                end
+                            end
+                        end
+                        task.wait(0.1)
+                    end
+                end)
+                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启删除导弹特效", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            end
+        else
+            missileLoopRunning = false
+            if missileJob then
+                task.cancel(missileJob)
+                missileJob = nil
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭删除导弹特效", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
 local gSim = false
 Tab2:CreateToggle({
     Name = "画质简化",
@@ -1042,8 +1080,7 @@ Tab7:CreateToggle({
 
 local playerEspEnabled = false
 local playerEspConnections = {}
-local playerDisplayEnabled = false
-local playerDisplayThread = nil
+local playerEspScanLoop = nil
 
 local function getPlayerFromCharacter(character)
     for _, player in ipairs(Players:GetPlayers()) do
@@ -1156,18 +1193,10 @@ end
 local function handleLivingCharacter(character)
     local player = getPlayerFromCharacter(character)
     if not player then return end
-
+    
     if character:FindFirstChild("PlayerESP") then return end
-
-    local head = character:FindFirstChild("Head")
-    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-    if not head or not humanoid then
-        task.wait(0.5)
-        head = character:FindFirstChild("Head")
-        humanoid = character:FindFirstChildWhichIsA("Humanoid")
-        if not head or not humanoid then return end
-    end
-
+    
+    task.wait(0.2)
     createHighlight(character, player)
 end
 
@@ -1178,7 +1207,7 @@ local function scanLiving()
     for _, character in ipairs(livingFolder:GetChildren()) do
         if character:IsA("Model") and character:FindFirstChild("Humanoid") then
             handleLivingCharacter(character)
-        end    
+        end
     end
 end
 
@@ -1211,6 +1240,10 @@ local function setupLivingWatcher()
 end
 
 local function clearPlayerESP()
+    if playerEspScanLoop then
+        task.cancel(playerEspScanLoop)
+        playerEspScanLoop = nil
+    end
     for _, conn in ipairs(playerEspConnections) do
         pcall(function() conn:Disconnect() end)
     end
@@ -1233,6 +1266,12 @@ Tab7:CreateToggle({
         if Value then
             clearPlayerESP()
             setupLivingWatcher()
+            playerEspScanLoop = task.spawn(function()
+                while playerEspEnabled do
+                    task.wait(3)
+                    scanLiving()
+                end
+            end)
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启玩家透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
         else
             clearPlayerESP()
@@ -1241,87 +1280,145 @@ Tab7:CreateToggle({
     end,
 })
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "PlayerCountUI"
-screenGui.IgnoreGuiInset = true
-screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+local playerDisplayEnabled = false
+local displayKeepAliveLoop = nil
+local displayUpdateLoop = nil
 
-local aliveLabel = Instance.new("TextLabel")
-aliveLabel.Size = UDim2.new(0, 80, 0, 20)
-aliveLabel.Position = UDim2.new(1, -95, 0, 5)
-aliveLabel.BackgroundTransparency = 1
-aliveLabel.Text = "存活: 0"
-aliveLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-aliveLabel.Font = Enum.Font.SourceSansBold
-aliveLabel.TextSize = 14
-aliveLabel.TextStrokeTransparency = 0
-aliveLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-aliveLabel.TextXAlignment = Enum.TextXAlignment.Right
-aliveLabel.Parent = screenGui
-
-local downedLabel = Instance.new("TextLabel")
-downedLabel.Size = UDim2.new(0, 80, 0, 20)
-downedLabel.Position = UDim2.new(1, -95, 0, 25)
-downedLabel.BackgroundTransparency = 1
-downedLabel.Text = "倒地: 0"
-downedLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-downedLabel.Font = Enum.Font.SourceSansBold
-downedLabel.TextSize = 14
-downedLabel.TextStrokeTransparency = 0
-downedLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-downedLabel.TextXAlignment = Enum.TextXAlignment.Right
-downedLabel.Parent = screenGui
-
-local function updatePlayerCount()
-    local livingFolder = Workspace:FindFirstChild("Living")
-    if not livingFolder then
-        aliveLabel.Text = "存活: 0"
-        downedLabel.Text = "倒地: 0"
-        return
-    end
-    
-    local aliveCount = 0
-    local downedCount = 0
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        local character = player.Character
-        if character and character:IsDescendantOf(livingFolder) then
-            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-            local isDowned = false
-            if humanoidRootPart then
-                local reviveUI = humanoidRootPart:FindFirstChild("ReviveUI")
-                if reviveUI then
-                    isDowned = true
-                end
-            end
-            
-            if isDowned then
-                downedCount = downedCount + 1
-            else
-                aliveCount = aliveCount + 1
-            end
+local function destroyDisplayUI()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        local screenGui = playerGui:FindFirstChild("PlayerCountUI")
+        if screenGui then
+            screenGui:Destroy()
         end
     end
+end
+
+local function createDisplayUI()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
     
-    aliveLabel.Text = "存活: " .. aliveCount
-    downedLabel.Text = "倒地: " .. downedCount
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "PlayerCountUI"
+    screenGui.IgnoreGuiInset = true
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = playerGui
+
+    local aliveLabel = Instance.new("TextLabel")
+    aliveLabel.Name = "AliveLabel"
+    aliveLabel.Size = UDim2.new(0, 100, 0, 22)
+    aliveLabel.Position = UDim2.new(1, -105, 0, 5)
+    aliveLabel.BackgroundTransparency = 1
+    aliveLabel.Text = "存活: 0"
+    aliveLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    aliveLabel.Font = Enum.Font.SourceSansBold
+    aliveLabel.TextSize = 14
+    aliveLabel.TextStrokeTransparency = 0
+    aliveLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    aliveLabel.TextXAlignment = Enum.TextXAlignment.Right
+    aliveLabel.Parent = screenGui
+
+    local downedLabel = Instance.new("TextLabel")
+    downedLabel.Name = "DownedLabel"
+    downedLabel.Size = UDim2.new(0, 100, 0, 22)
+    downedLabel.Position = UDim2.new(1, -105, 0, 27)
+    downedLabel.BackgroundTransparency = 1
+    downedLabel.Text = "倒地: 0"
+    downedLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    downedLabel.Font = Enum.Font.SourceSansBold
+    downedLabel.TextSize = 14
+    downedLabel.TextStrokeTransparency = 0
+    downedLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    downedLabel.TextXAlignment = Enum.TextXAlignment.Right
+    downedLabel.Parent = screenGui
+    
+    return screenGui
 end
 
-local function stopUpdating()
-    if playerDisplayThread then
-        task.cancel(playerDisplayThread)
-        playerDisplayThread = nil
-    end
+local function updateCounts()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+    local screenGui = playerGui:FindFirstChild("PlayerCountUI")
+    if not screenGui then return end
+    
+    local aliveLabel = screenGui:FindFirstChild("AliveLabel")
+    local downedLabel = screenGui:FindFirstChild("DownedLabel")
+    if not aliveLabel or not downedLabel then return end
+    
+    pcall(function()
+        local livingFolder = Workspace:FindFirstChild("Living")
+        if not livingFolder then
+            aliveLabel.Text = "存活: 0"
+            downedLabel.Text = "倒地: 0"
+            return
+        end
+
+        local aliveCount = 0
+        local downedCount = 0
+
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            local char = otherPlayer.Character
+            if char and char:IsDescendantOf(livingFolder) then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local isDowned = false
+                if hrp then
+                    local reviveUI = hrp:FindFirstChild("ReviveUI")
+                    if reviveUI then
+                        isDowned = true
+                    end
+                end
+
+                if isDowned then
+                    downedCount = downedCount + 1
+                else
+                    aliveCount = aliveCount + 1
+                end
+            end
+        end
+
+        aliveLabel.Text = "存活: " .. aliveCount
+        downedLabel.Text = "倒地: " .. downedCount
+    end)
 end
 
-local function startUpdating()
-    if playerDisplayThread then return end
-    playerDisplayThread = task.spawn(function()
+local function startDisplayUpdate()
+    if displayUpdateLoop then return end
+    displayUpdateLoop = task.spawn(function()
         while playerDisplayEnabled do
-            updatePlayerCount()
+            updateCounts()
             task.wait(1)
         end
     end)
+end
+
+local function stopDisplayUpdate()
+    if displayUpdateLoop then
+        task.cancel(displayUpdateLoop)
+        displayUpdateLoop = nil
+    end
+end
+
+local function startDisplayKeepAlive()
+    if displayKeepAliveLoop then return end
+    displayKeepAliveLoop = task.spawn(function()
+        while playerDisplayEnabled do
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            if playerGui then
+                local screenGui = playerGui:FindFirstChild("PlayerCountUI")
+                if not screenGui then
+                    createDisplayUI()
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function stopDisplayKeepAlive()
+    if displayKeepAliveLoop then
+        task.cancel(displayKeepAliveLoop)
+        displayKeepAliveLoop = nil
+    end
 end
 
 Tab7:CreateToggle({
@@ -1332,10 +1429,15 @@ Tab7:CreateToggle({
     Callback = function(Value)
         playerDisplayEnabled = Value
         if Value then
-            startUpdating()
+            destroyDisplayUI()
+            createDisplayUI()
+            startDisplayKeepAlive()
+            startDisplayUpdate()
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启玩家显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
         else
-            stopUpdating()
+            stopDisplayKeepAlive()
+            stopDisplayUpdate()
+            destroyDisplayUI()
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭玩家显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
