@@ -44,6 +44,7 @@ local Tab4 = Window:CreateTab("选择特殊泰坦")
 local Tab5 = Window:CreateTab("选择角色")
 local Tab6 = Window:CreateTab("加入私服房")
 local Tab7 = Window:CreateTab("ESP")
+local Tab8 = Window:CreateTab("商店")
 
 Tab1:CreateButton({
     Name = "复制休闲码",
@@ -1440,6 +1441,93 @@ Tab7:CreateToggle({
             destroyDisplayUI()
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭玩家显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
+    end,
+})
+
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+Tab8:CreateToggle({
+    Name = "直升机商店",
+    CurrentValue = false,
+    Flag = "HeliShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("003-A")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启直升机商店" or "已关闭直升机商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 003-A 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab8:CreateToggle({
+    Name = "泰坦电视2.0装备商店",
+    CurrentValue = false,
+    Flag = "TVShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("UpgradeTVShop")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦电视2.0装备商店" or "已关闭泰坦电视2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 UpgradeTVShop 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab8:CreateToggle({
+    Name = "泰坦音响2.0装备商店",
+    CurrentValue = false,
+    Flag = "UTSMShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("ConfirmUTSM")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦音响2.0装备商店" or "已关闭泰坦音响2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 ConfirmUTSM 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab8:CreateToggle({
+    Name = "泰坦监控2.0装备商店",
+    CurrentValue = false,
+    Flag = "CameraShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("UpgradeCameraShop")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦监控2.0装备商店" or "已关闭泰坦监控2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 UpgradeCameraShop 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local isBuyingC4 = false
+Tab8:CreateButton({
+    Name = "导弹人装备升级",
+    Ext = true,
+    Callback = function()
+        if isBuyingC4 then return end
+        isBuyingC4 = true
+        local nukeTitanSet = ReplicatedStorage:FindFirstChild("NukeTitanSet")
+        if nukeTitanSet then
+            pcall(function()
+                nukeTitanSet:FireServer("BuyC4s")
+            end)
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已购买 C4 装备", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 NukeTitanSet 远程事件", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+        task.wait(1)
+        isBuyingC4 = false
     end,
 })
 
