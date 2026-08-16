@@ -1696,16 +1696,20 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService = game:GetService("UserInputService")
 UserInputService.MouseIconEnabled = false
 
+-- 自动点击抽奖功能（修复：可正常关闭，且点击位置在右下角避免点到UI）
+local autoClickRunning = false
+local autoClickJob = nil
+
 local function tapScreen()
     local screenSize = Workspace.CurrentCamera.ViewportSize
-    local centerX = screenSize.X / 2
-    local centerY = screenSize.Y / 2
+    local x = screenSize.X - 50   -- 距离右边缘50像素
+    local y = screenSize.Y - 50   -- 距离下边缘50像素
     local touchId = math.random(1000, 9999)
-    VirtualInputManager:SendTouchEvent(touchId, 0, centerX, centerY)
+    VirtualInputManager:SendTouchEvent(touchId, 0, x, y)
     task.wait(0.02)
-    VirtualInputManager:SendTouchEvent(touchId, 1, centerX, centerY)
+    VirtualInputManager:SendTouchEvent(touchId, 1, x, y)
     task.wait(0.02)
-    VirtualInputManager:SendTouchEvent(touchId, 2, centerX, centerY)
+    VirtualInputManager:SendTouchEvent(touchId, 2, x, y)
 end
 
 Tab3:CreateToggle({
@@ -1714,21 +1718,28 @@ Tab3:CreateToggle({
     Flag = "AutoClickGachaToggle",
     Ext = true,
     Callback = function(Value)
-        local enabled = Value
-        if enabled then
-            task.spawn(function()
-                while enabled do
-                    local gachaMomment = LocalPlayer:FindFirstChild("GachaMomment")
-                    if gachaMomment then
-                        tapScreen()
-                        task.wait(0.05)
-                    else
-                        task.wait(0.5)
+        if Value then
+            if not autoClickRunning then
+                autoClickRunning = true
+                autoClickJob = task.spawn(function()
+                    while autoClickRunning do
+                        local gachaMomment = LocalPlayer:FindFirstChild("GachaMomment")
+                        if gachaMomment then
+                            tapScreen()
+                            task.wait(0.05)
+                        else
+                            task.wait(0.5)
+                        end
                     end
-                end
-            end)
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
+                end)
+                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            end
         else
+            autoClickRunning = false
+            if autoClickJob then
+                task.cancel(autoClickJob)
+                autoClickJob = nil
+            end
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
@@ -1838,7 +1849,6 @@ end
 task.wait(1)
 checkSelf()
 
--- ===== 付费功能标签页中的一刀修罗按钮（切换显示悬浮UI） =====
 Tab9:CreateButton({
     Name = "一刀修罗",
     Ext = true,
