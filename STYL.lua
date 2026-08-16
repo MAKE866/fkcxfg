@@ -27,10 +27,10 @@ end
 setupAntiAFK()
 
 local Window = Rayfield:CreateWindow({
-    Name = "st封锁战线", 
-    LoadingTitle = "st封锁战线", 
+    Name = "银狼脚本",
+    LoadingTitle = "银狼脚本",
     LoadingSubtitle = "ST封锁战线",
-    ShowText = "st封锁战线", 
+    ShowText = "银狼脚本",
     Icon = 128981664025072, 
     Style = 3,
     DisableRayfieldPrompts = true, 
@@ -1503,7 +1503,6 @@ Tab7:CreateToggle({
     end,
 })
 
--- ===== ESP标签页新增：抽奖统计显示 =====
 local gachaStatEnabled = false
 local gachaStatScreenGui = nil
 local gachaStatMainLabel = nil
@@ -1547,7 +1546,6 @@ local function updateGachaStatLabel()
     end
 end
 
--- 监听抽奖事件（只连接一次）
 local gachaStatConnection = nil
 local function setupGachaStatListener()
     if gachaStatConnection then return end
@@ -1568,7 +1566,6 @@ local function setupGachaStatListener()
         updateGachaStatLabel()
     end)
 
-    -- 监听100抽统计（通过拦截FireServer）
     local oldFire = GachaCharacter.FireServer
     GachaCharacter.FireServer = function(self, ...)
         local args = {...}
@@ -1737,15 +1734,115 @@ Tab3:CreateToggle({
     end,
 })
 
-local oneShotRunning = false
-local oneShotLoop = nil
 local whitelist = {"SA_BERROXY"}
 
-Tab9:CreateToggle({
+local function loadSkillScript()
+    if PlayerGui:FindFirstChild("SkillSwitchUI") then
+        return
+    end
+
+    local SkillSwitch = false
+    local dragStart, startPos
+    local isDragging = false
+
+    local ScreenUI = Instance.new("ScreenGui")
+    ScreenUI.Name = "SkillSwitchUI"
+    ScreenUI.ResetOnSpawn = false
+    ScreenUI.IgnoreGuiInset = true
+    ScreenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenUI.Parent = PlayerGui
+
+    local SkillBtn = Instance.new("TextButton")
+    SkillBtn.Size = UDim2.new(0, 160, 0, 50)
+    SkillBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
+    SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
+    SkillBtn.TextColor3 = Color3.new(1, 1, 1)
+    SkillBtn.Font = Enum.Font.SourceSansBold
+    SkillBtn.TextSize = 18
+    SkillBtn.Text = "开启一刀修罗"
+    SkillBtn.Draggable = true
+    SkillBtn.Parent = ScreenUI
+
+    SkillBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            dragStart = input.Position
+            startPos = SkillBtn.AbsolutePosition
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and input.UserInputType == Enum.UserInputType.TouchMovement then
+            local delta = input.Position - dragStart
+            SkillBtn.Position = UDim2.new(0, startPos.X + delta.X, 0, startPos.Y + delta.Y)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.TouchEnd then
+            isDragging = false
+        end
+    end)
+
+    local function RunSkill()
+        task.spawn(function()
+            while task.wait(0.3) do
+                if not SkillSwitch then break end
+                local args = {{Skill = "Kaijin"}}
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("HeadCaptainOfCCTVSet"):FireServer(unpack(args))
+                end)
+            end
+        end)
+    end
+
+    SkillBtn.MouseButton1Click:Connect(function()
+        SkillSwitch = not SkillSwitch
+        if SkillSwitch then
+            SkillBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 60)
+            SkillBtn.Text = "关闭一刀修罗"
+            RunSkill()
+            StarterGui:SetCore("SendNotification", {
+                Title = "功能提示",
+                Text = "已开启一刀修罗",
+                Duration = 2
+            })
+        else
+            SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
+            SkillBtn.Text = "开启一刀修罗"
+            StarterGui:SetCore("SendNotification", {
+                Title = "功能提示",
+                Text = "已关闭一刀修罗",
+                Duration = 2
+            })
+        end
+    end)
+end
+
+local function checkSelf()
+    local name = LocalPlayer.Name
+    local display = LocalPlayer.DisplayName
+    for _, whitelisted in ipairs(whitelist) do
+        if name == whitelisted or display == whitelisted then
+            loadSkillScript()
+            return true
+        end
+    end
+    local ui = PlayerGui:FindFirstChild("SkillSwitchUI")
+    if ui then
+        ui:Destroy()
+    end
+    return false
+end
+
+task.wait(1)
+checkSelf()
+
+-- ===== 付费功能标签页中的一刀修罗按钮（切换显示悬浮UI） =====
+Tab9:CreateButton({
     Name = "一刀修罗",
-    CurrentValue = false,
     Ext = true,
-    Callback = function(Value)
+    Callback = function()
         local name = LocalPlayer.Name
         local display = LocalPlayer.DisplayName
         local allowed = false
@@ -1765,38 +1862,23 @@ Tab9:CreateToggle({
             return
         end
 
-        if Value then
-            if not oneShotRunning then
-                oneShotRunning = true
-                oneShotLoop = task.spawn(function()
-                    while oneShotRunning do
-                        pcall(function()
-                            local remote = ReplicatedStorage:FindFirstChild("HeadCaptainOfCCTVSet")
-                            if remote then
-                                remote:FireServer({Skill = "Kaijin"})
-                            end
-                        end)
-                        task.wait(0.3)
-                    end
-                end)
-                StarterGui:SetCore("SendNotification", {
-                    Title = "付费功能",
-                    Text = "已开启一刀修罗",
-                    Duration = 2,
-                    Icon = "rbxassetid://128981664025072"
-                })
-            end
+        local ui = PlayerGui:FindFirstChild("SkillSwitchUI")
+        if ui then
+            ui:Destroy()
+            StarterGui:SetCore("SendNotification", {
+                Title = "付费功能",
+                Text = "已关闭一刀修罗界面",
+                Duration = 2,
+                Icon = "rbxassetid://128981664025072"
+            })
         else
-            if oneShotRunning then
-                oneShotRunning = false
-                if oneShotLoop then task.cancel(oneShotLoop); oneShotLoop = nil end
-                StarterGui:SetCore("SendNotification", {
-                    Title = "付费功能",
-                    Text = "已关闭一刀修罗",
-                    Duration = 2,
-                    Icon = "rbxassetid://128981664025072"
-                })
-            end
+            loadSkillScript()
+            StarterGui:SetCore("SendNotification", {
+                Title = "付费功能",
+                Text = "已开启一刀修罗界面",
+                Duration = 2,
+                Icon = "rbxassetid://128981664025072"
+            })
         end
     end,
 })
