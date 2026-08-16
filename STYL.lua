@@ -1796,8 +1796,6 @@ Tab8:CreateToggle({
         if target then
             target.Enabled = Value
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦电视2.0装备商店" or "已关闭泰坦电视2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
 })
@@ -1812,8 +1810,6 @@ Tab8:CreateToggle({
         if target then
             target.Enabled = Value
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦音响2.0装备商店" or "已关闭泰坦音响2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
 })
@@ -1828,8 +1824,6 @@ Tab8:CreateToggle({
         if target then
             target.Enabled = Value
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦监控2.0装备商店" or "已关闭泰坦监控2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
 })
