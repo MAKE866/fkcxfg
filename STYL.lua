@@ -27,10 +27,10 @@ end
 setupAntiAFK()
 
 local Window = Rayfield:CreateWindow({
-    Name = "银狼脚本",
-    LoadingTitle = "银狼脚本",
+    Name = "st封锁战线",
+    LoadingTitle = "st封锁战线",
     LoadingSubtitle = "ST封锁战线",
-    ShowText = "银狼脚本",
+    ShowText = "st封锁战线",
     Icon = 128981664025072, 
     Style = 3,
     DisableRayfieldPrompts = true, 
@@ -1173,95 +1173,63 @@ end
 local function createBillboard(character, player)
     local head = character:FindFirstChild("Head")
     if not head then return end
-    
+
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "PlayerInfo"
-    billboard.Size = UDim2.new(5, 0, 1, 0)
+    billboard.Size = UDim2.new(0, 120, 0, 40)
     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = 10000
     billboard.Parent = head
-    
+
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 1, 0)
+    nameLabel.Size = UDim2.new(1, 0, 0.6, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = player.Name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    nameLabel.TextSize = 11
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextStrokeTransparency = 0.3
     nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    nameLabel.Font = Enum.Font.SourceSansBold
-    nameLabel.TextSize = 12
     nameLabel.Parent = billboard
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1, 0, 0.4, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.6, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "0m"
+    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distLabel.TextSize = 9
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distLabel.Parent = billboard
+
+    return {billboard = billboard, name = nameLabel, dist = distLabel}
 end
 
 local function createHighlight(character, player)
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoid then return end
-    
+
     local highlight = Instance.new("Highlight")
     highlight.Name = "PlayerESP"
-    highlight.FillTransparency = 0.3
-    highlight.OutlineTransparency = 0
+    highlight.Adornee = character
+    highlight.FillColor = Color3.fromRGB(255, 255, 255)
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0.5
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = character
-    
-    local function updateHighlightColor()
-        if not humanoid or not humanoid.Parent then return end
-        
-        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-        local isDowned = false
-        if humanoidRootPart then
-            local reviveUI = humanoidRootPart:FindFirstChild("ReviveUI")
-            if reviveUI then
-                isDowned = true
-            end
-        end
-        
-        if player == Players.LocalPlayer then
-            if isDowned then
-                highlight.FillColor = Color3.fromRGB(100, 100, 100)
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-            else
-                highlight.FillColor = Color3.fromRGB(0, 255, 100)
-                highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
-            end
-        else
-            if isDowned then
-                highlight.FillColor = Color3.fromRGB(100, 0, 0)
-                highlight.OutlineColor = Color3.fromRGB(255, 50, 50)
-            else
-                highlight.FillColor = Color3.fromRGB(255, 50, 50)
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            end
-        end
-    end
-    
-    humanoid.HealthChanged:Connect(updateHighlightColor)
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if humanoidRootPart then
-        humanoidRootPart.ChildAdded:Connect(function(child)
-            if child.Name == "ReviveUI" then
-                updateHighlightColor()
-            end
-        end)
-        humanoidRootPart.ChildRemoved:Connect(function(child)
-            if child.Name == "ReviveUI" then
-                updateHighlightColor()
-            end
-        end)
-    end
-    
-    updateHighlightColor()
-    
-    createBillboard(character, player)
+
+    return highlight
 end
 
 local function removeESP(character)
     local highlight = character:FindFirstChild("PlayerESP")
     if highlight then highlight:Destroy() end
-    
+
     local head = character:FindFirstChild("Head")
     if head then
         local billboard = head:FindFirstChild("PlayerInfo")
@@ -1272,20 +1240,49 @@ end
 local function handleLivingCharacter(character)
     local player = getPlayerFromCharacter(character)
     if not player then return end
-    
+
     if character:FindFirstChild("PlayerESP") then return end
-    
+
     task.wait(0.2)
     createHighlight(character, player)
+    createBillboard(character, player)
 end
 
 local function scanLiving()
     local livingFolder = Workspace:FindFirstChild("Living")
     if not livingFolder then return end
-    
+
     for _, character in ipairs(livingFolder:GetChildren()) do
         if character:IsA("Model") and character:FindFirstChild("Humanoid") then
             handleLivingCharacter(character)
+        end
+    end
+end
+
+local function updatePlayerDistances()
+    if not playerEspEnabled then return end
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local livingFolder = Workspace:FindFirstChild("Living")
+    if not livingFolder then return end
+
+    for _, character in ipairs(livingFolder:GetChildren()) do
+        if character:IsA("Model") then
+            local head = character:FindFirstChild("Head")
+            if head then
+                local billboard = head:FindFirstChild("PlayerInfo")
+                if billboard then
+                    local distLabel = billboard:FindFirstChild("TextLabel")
+                    if distLabel and distLabel.Position == UDim2.new(0, 0, 0.6, 0) then
+                        local targetPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChildWhichIsA("BasePart")
+                        if targetPart then
+                            local dist = (hrp.Position - targetPart.Position).Magnitude
+                            distLabel.Text = string.format("%.1fm", dist)
+                        end
+                    end
+                end
+            end
         end
     end
 end
@@ -1302,16 +1299,16 @@ local function setupLivingWatcher()
         table.insert(playerEspConnections, conn)
         return
     end
-    
+
     scanLiving()
-    
+
     local addConn = livingFolder.ChildAdded:Connect(function(character)
         if character:IsA("Model") and character:FindFirstChild("Humanoid") then
             handleLivingCharacter(character)
         end
     end)
     table.insert(playerEspConnections, addConn)
-    
+
     local remConn = livingFolder.ChildRemoved:Connect(function(character)
         removeESP(character)
     end)
@@ -1347,8 +1344,8 @@ Tab7:CreateToggle({
             setupLivingWatcher()
             playerEspScanLoop = task.spawn(function()
                 while playerEspEnabled do
-                    task.wait(3)
-                    scanLiving()
+                    task.wait(0.5)
+                    updatePlayerDistances()
                 end
             end)
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启玩家透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
@@ -1651,7 +1648,7 @@ local function matAddLabel(obj)
     nameLabel.Position = UDim2.new(0, 0, 0, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = obj.Name
-    nameLabel.TextColor3 = Color3.fromRGB(0, 162, 255) -- 改为蓝色
+    nameLabel.TextColor3 = Color3.fromRGB(0, 162, 255)
     nameLabel.TextSize = 11
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextStrokeTransparency = 0.3
@@ -1688,358 +1685,4 @@ local function matAddHighlight(obj)
     hl.Name = "Highlight_ESP"
     hl.Adornee = obj
     hl.FillColor = Color3.fromRGB(255, 255, 255)
-    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-    hl.FillTransparency = 0.7
-    hl.OutlineTransparency = 0.5
-    hl.Parent = obj
-    matHList[obj] = hl
-
-    matAddLabel(obj)
-end
-
-local function matRemoveHighlight(obj)
-    if matHList[obj] then
-        matHList[obj]:Destroy()
-        matHList[obj] = nil
-    end
-    matRemoveLabel(obj)
-end
-
-local function matClearAll()
-    for obj, _ in pairs(matHList) do matRemoveHighlight(obj) end
-    for obj, _ in pairs(matDLabels) do matRemoveLabel(obj) end
-end
-
-local function matScanInteractables()
-    if not matEnabled then return end
-    matClearAll()
-
-    local count = 0
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if isInteractable(obj) then
-            matAddHighlight(obj)
-            count = count + 1
-        end
-    end
-end
-
-local function matUpdateDistances()
-    if not matEnabled then return end
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    for obj, labels in pairs(matDLabels) do
-        if labels and labels.dist and labels.dist.Parent and obj and obj.Parent then
-            local pos = obj.Position
-            if pos then
-                local dist = (hrp.Position - pos).Magnitude
-                labels.dist.Text = string.format("%.1fm", dist)
-            end
-        end
-    end
-end
-
-local matAddConn = nil
-
-Tab7:CreateToggle({
-    Name = "材料透视",
-    CurrentValue = false,
-    Flag = "MaterialEspToggle",
-    Ext = true,
-    Callback = function(Value)
-        matEnabled = Value
-        if Value then
-            matClearAll()
-            if not matAddConn then
-                matAddConn = Workspace.DescendantAdded:Connect(function(obj)
-                    task.wait(0.1)
-                    if matEnabled and isInteractable(obj) then
-                        matAddHighlight(obj)
-                    end
-                end)
-            end
-            if not matDistConn then matDistConn = RunService.Heartbeat:Connect(matUpdateDistances) end
-            if not matScanConn then matScanConn = RunService.Heartbeat:Connect(matScanInteractables) end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            if matAddConn then matAddConn:Disconnect(); matAddConn = nil end
-            if matDistConn then matDistConn:Disconnect(); matDistConn = nil end
-            if matScanConn then matScanConn:Disconnect(); matScanConn = nil end
-            matClearAll()
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-Tab8:CreateToggle({
-    Name = "直升机商店",
-    CurrentValue = false,
-    Flag = "HeliShopToggle",
-    Ext = true,
-    Callback = function(Value)
-        local target = playerGui:FindFirstChild("003-A")
-        if target then
-            target.Enabled = Value
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启直升机商店" or "已关闭直升机商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 003-A 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-Tab8:CreateToggle({
-    Name = "泰坦电视2.0装备商店",
-    CurrentValue = false,
-    Flag = "TVShopToggle",
-    Ext = true,
-    Callback = function(Value)
-        local target = playerGui:FindFirstChild("UpgradeTVShop")
-        if target then
-            target.Enabled = Value
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦电视2.0装备商店" or "已关闭泰坦电视2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 UpgradeTVShop 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-Tab8:CreateToggle({
-    Name = "泰坦音响2.0装备商店",
-    CurrentValue = false,
-    Flag = "UTSMShopToggle",
-    Ext = true,
-    Callback = function(Value)
-        local target = playerGui:FindFirstChild("ConfirmUTSM")
-        if target then
-            target.Enabled = Value
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦音响2.0装备商店" or "已关闭泰坦音响2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "请在局内使用", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-Tab8:CreateToggle({
-    Name = "泰坦监控2.0装备商店",
-    CurrentValue = false,
-    Flag = "CameraShopToggle",
-    Ext = true,
-    Callback = function(Value)
-        local target = playerGui:FindFirstChild("UpgradeCameraShop")
-        if target then
-            target.Enabled = Value
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦监控2.0装备商店" or "已关闭泰坦监控2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "请在局内使用", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local isBuyingC4 = false
-Tab8:CreateButton({
-    Name = "导弹人装备升级",
-    Ext = true,
-    Callback = function()
-        if isBuyingC4 then return end
-        isBuyingC4 = true
-        local nukeTitanSet = ReplicatedStorage:FindFirstChild("NukeTitanSet")
-        if nukeTitanSet then
-            pcall(function()
-                nukeTitanSet:FireServer("BuyC4s")
-            end)
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已购买 C4 装备", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 NukeTitanSet 远程事件", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-        task.wait(1)
-        isBuyingC4 = false
-    end,
-})
-
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local UserInputService = game:GetService("UserInputService")
-UserInputService.MouseIconEnabled = false
-
-local autoClickRunning = false
-local autoClickJob = nil
-
-local function tapGachaButton()
-    local gacha = LocalPlayer:FindFirstChild("GachaMomment")
-    if not gacha then return false end
-    local absPos = gacha.AbsolutePosition
-    local absSize = gacha.AbsoluteSize
-    if absPos.X == 0 and absPos.Y == 0 then return false end
-    local centerX = absPos.X + absSize.X / 2
-    local centerY = absPos.Y + absSize.Y / 2
-    local touchId = math.random(1000, 9999)
-    VirtualInputManager:SendTouchEvent(touchId, 0, centerX, centerY)
-    task.wait(0.02)
-    VirtualInputManager:SendTouchEvent(touchId, 1, centerX, centerY)
-    task.wait(0.02)
-    VirtualInputManager:SendTouchEvent(touchId, 2, centerX, centerY)
-    return true
-end
-
-Tab3:CreateToggle({
-    Name = "自动点击抽奖",
-    CurrentValue = false,
-    Flag = "AutoClickGachaToggle",
-    Ext = true,
-    Callback = function(Value)
-        if Value then
-            if not autoClickRunning then
-                autoClickRunning = true
-                autoClickJob = task.spawn(function()
-                    while autoClickRunning do
-                        if not tapGachaButton() then
-                            task.wait(0.5)
-                        else
-                            task.wait(0.05)
-                        end
-                    end
-                end)
-                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
-            end
-        else
-            autoClickRunning = false
-            if autoClickJob then
-                task.cancel(autoClickJob)
-                autoClickJob = nil
-            end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local whitelist = {"SA_BERROXY"}
-local function checkIsWhitelisted()
-    local name = LocalPlayer.Name
-    local display = LocalPlayer.DisplayName
-    for _, w in ipairs(whitelist) do
-        if name == w or display == w then
-            return true
-        end
-    end
-    return false
-end
-
-Tab9:CreateButton({
-    Name = "一刀修罗",
-    Ext = true,
-    Callback = function()
-        if not checkIsWhitelisted() then
-            StarterGui:SetCore("SendNotification", {
-                Title = "付费功能",
-                Text = "您无权使用此功能，仅限白名单用户",
-                Duration = 3,
-                Icon = "rbxassetid://128981664025072"
-            })
-            return
-        end
-
-        local existingUI = LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("SkillSwitchUI")
-        if existingUI then
-            existingUI:Destroy()
-            StarterGui:SetCore("SendNotification", {
-                Title = "付费功能",
-                Text = "已关闭一刀修罗界面",
-                Duration = 2,
-                Icon = "rbxassetid://128981664025072"
-            })
-            return
-        end
-
-        local ScreenUI = Instance.new("ScreenGui")
-        ScreenUI.Name = "SkillSwitchUI"
-        ScreenUI.ResetOnSpawn = false
-        ScreenUI.IgnoreGuiInset = true
-        ScreenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        ScreenUI.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-        local SkillBtn = Instance.new("TextButton")
-        SkillBtn.Size = UDim2.new(0, 160, 0, 50)
-        SkillBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
-        SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
-        SkillBtn.TextColor3 = Color3.new(1, 1, 1)
-        SkillBtn.Font = Enum.Font.SourceSansBold
-        SkillBtn.TextSize = 18
-        SkillBtn.Text = "开启一刀修罗"
-        SkillBtn.Draggable = true
-        SkillBtn.Parent = ScreenUI
-
-        local isDragging = false
-        local dragStart, startPos
-        SkillBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = true
-                dragStart = input.Position
-                startPos = SkillBtn.AbsolutePosition
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if isDragging and input.UserInputType == Enum.UserInputType.TouchMovement then
-                local delta = input.Position - dragStart
-                SkillBtn.Position = UDim2.new(0, startPos.X + delta.X, 0, startPos.Y + delta.Y)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.TouchEnd then
-                isDragging = false
-            end
-        end)
-
-        local SkillSwitch = false
-        local function RunSkill()
-            task.spawn(function()
-                while task.wait(0.3) do
-                    if not SkillSwitch then break end
-                    local args = {{Skill = "Kaijin"}}
-                    pcall(function()
-                        ReplicatedStorage:WaitForChild("HeadCaptainOfCCTVSet"):FireServer(unpack(args))
-                    end)
-                end
-            end)
-        end
-
-        SkillBtn.MouseButton1Click:Connect(function()
-            SkillSwitch = not SkillSwitch
-            if SkillSwitch then
-                SkillBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 60)
-                SkillBtn.Text = "关闭一刀修罗"
-                RunSkill()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "功能提示",
-                    Text = "已开启一刀修罗",
-                    Duration = 2
-                })
-            else
-                SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
-                SkillBtn.Text = "开启一刀修罗"
-                StarterGui:SetCore("SendNotification", {
-                    Title = "功能提示",
-                    Text = "已关闭一刀修罗",
-                    Duration = 2
-                })
-            end
-        end)
-
-        StarterGui:SetCore("SendNotification", {
-            Title = "付费功能",
-            Text = "已开启一刀修罗界面",
-            Duration = 2,
-            Icon = "rbxassetid://128981664025072"
-        })
-    end,
-})
-
-task.spawn(function()
-    StarterGui:SetCore("SendNotification", { Title = "st封锁战线已加载", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
-    task.wait(3)
-    StarterGui:SetCore("SendNotification", { Title = "每天周日更新", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
-    task.wait(3)
-    StarterGui:SetCore("SendNotification", { Title = "感谢你的支持", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
-end)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255
