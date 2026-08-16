@@ -1745,123 +1745,22 @@ Tab3:CreateToggle({
 })
 
 local whitelist = {"SA_BERROXY"}
-
-local function loadSkillScript()
-    if PlayerGui:FindFirstChild("SkillSwitchUI") then
-        return
-    end
-
-    local SkillSwitch = false
-    local dragStart, startPos
-    local isDragging = false
-
-    local ScreenUI = Instance.new("ScreenGui")
-    ScreenUI.Name = "SkillSwitchUI"
-    ScreenUI.ResetOnSpawn = false
-    ScreenUI.IgnoreGuiInset = true
-    ScreenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenUI.Parent = PlayerGui
-
-    local SkillBtn = Instance.new("TextButton")
-    SkillBtn.Size = UDim2.new(0, 160, 0, 50)
-    SkillBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
-    SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
-    SkillBtn.TextColor3 = Color3.new(1, 1, 1)
-    SkillBtn.Font = Enum.Font.SourceSansBold
-    SkillBtn.TextSize = 18
-    SkillBtn.Text = "开启一刀修罗"
-    SkillBtn.Draggable = true
-    SkillBtn.Parent = ScreenUI
-
-    SkillBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-            dragStart = input.Position
-            startPos = SkillBtn.AbsolutePosition
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and input.UserInputType == Enum.UserInputType.TouchMovement then
-            local delta = input.Position - dragStart
-            SkillBtn.Position = UDim2.new(0, startPos.X + delta.X, 0, startPos.Y + delta.Y)
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.TouchEnd then
-            isDragging = false
-        end
-    end)
-
-    local function RunSkill()
-        task.spawn(function()
-            while task.wait(0.3) do
-                if not SkillSwitch then break end
-                local args = {{Skill = "Kaijin"}}
-                pcall(function()
-                    ReplicatedStorage:WaitForChild("HeadCaptainOfCCTVSet"):FireServer(unpack(args))
-                end)
-            end
-        end)
-    end
-
-    SkillBtn.MouseButton1Click:Connect(function()
-        SkillSwitch = not SkillSwitch
-        if SkillSwitch then
-            SkillBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 60)
-            SkillBtn.Text = "关闭一刀修罗"
-            RunSkill()
-            StarterGui:SetCore("SendNotification", {
-                Title = "功能提示",
-                Text = "已开启一刀修罗",
-                Duration = 2
-            })
-        else
-            SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
-            SkillBtn.Text = "开启一刀修罗"
-            StarterGui:SetCore("SendNotification", {
-                Title = "功能提示",
-                Text = "已关闭一刀修罗",
-                Duration = 2
-            })
-        end
-    end)
-end
-
-local function checkSelf()
+local function checkIsWhitelisted()
     local name = LocalPlayer.Name
     local display = LocalPlayer.DisplayName
-    for _, whitelisted in ipairs(whitelist) do
-        if name == whitelisted or display == whitelisted then
-            loadSkillScript()
+    for _, w in ipairs(whitelist) do
+        if name == w or display == w then
             return true
         end
     end
-    local ui = PlayerGui:FindFirstChild("SkillSwitchUI")
-    if ui then
-        ui:Destroy()
-    end
     return false
 end
-
-task.wait(1)
-checkSelf()
 
 Tab9:CreateButton({
     Name = "一刀修罗",
     Ext = true,
     Callback = function()
-        local name = LocalPlayer.Name
-        local display = LocalPlayer.DisplayName
-        local allowed = false
-        for _, w in ipairs(whitelist) do
-            if name == w or display == w then
-                allowed = true
-                break
-            end
-        end
-        if not allowed then
+        if not checkIsWhitelisted() then
             StarterGui:SetCore("SendNotification", {
                 Title = "付费功能",
                 Text = "您无权使用此功能，仅限白名单用户",
@@ -1871,24 +1770,100 @@ Tab9:CreateButton({
             return
         end
 
-        local ui = PlayerGui:FindFirstChild("SkillSwitchUI")
-        if ui then
-            ui:Destroy()
+        local existingUI = LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("SkillSwitchUI")
+        if existingUI then
+            existingUI:Destroy()
             StarterGui:SetCore("SendNotification", {
                 Title = "付费功能",
                 Text = "已关闭一刀修罗界面",
                 Duration = 2,
                 Icon = "rbxassetid://128981664025072"
             })
-        else
-            loadSkillScript()
-            StarterGui:SetCore("SendNotification", {
-                Title = "付费功能",
-                Text = "已开启一刀修罗界面",
-                Duration = 2,
-                Icon = "rbxassetid://128981664025072"
-            })
+            return
         end
+
+        local ScreenUI = Instance.new("ScreenGui")
+        ScreenUI.Name = "SkillSwitchUI"
+        ScreenUI.ResetOnSpawn = false
+        ScreenUI.IgnoreGuiInset = true
+        ScreenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        ScreenUI.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+        local SkillBtn = Instance.new("TextButton")
+        SkillBtn.Size = UDim2.new(0, 160, 0, 50)
+        SkillBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
+        SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
+        SkillBtn.TextColor3 = Color3.new(1, 1, 1)
+        SkillBtn.Font = Enum.Font.SourceSansBold
+        SkillBtn.TextSize = 18
+        SkillBtn.Text = "开启一刀修罗"
+        SkillBtn.Draggable = true
+        SkillBtn.Parent = ScreenUI
+
+        local isDragging = false
+        local dragStart, startPos
+        SkillBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                isDragging = true
+                dragStart = input.Position
+                startPos = SkillBtn.AbsolutePosition
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if isDragging and input.UserInputType == Enum.UserInputType.TouchMovement then
+                local delta = input.Position - dragStart
+                SkillBtn.Position = UDim2.new(0, startPos.X + delta.X, 0, startPos.Y + delta.Y)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.TouchEnd then
+                isDragging = false
+            end
+        end)
+
+        local SkillSwitch = false
+        local function RunSkill()
+            task.spawn(function()
+                while task.wait(0.3) do
+                    if not SkillSwitch then break end
+                    local args = {{Skill = "Kaijin"}}
+                    pcall(function()
+                        ReplicatedStorage:WaitForChild("HeadCaptainOfCCTVSet"):FireServer(unpack(args))
+                    end)
+                end
+            end)
+        end
+
+        SkillBtn.MouseButton1Click:Connect(function()
+            SkillSwitch = not SkillSwitch
+            if SkillSwitch then
+                SkillBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 60)
+                SkillBtn.Text = "关闭一刀修罗"
+                RunSkill()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "功能提示",
+                    Text = "已开启一刀修罗",
+                    Duration = 2
+                })
+            else
+                SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
+                SkillBtn.Text = "开启一刀修罗"
+                StarterGui:SetCore("SendNotification", {
+                    Title = "功能提示",
+                    Text = "已关闭一刀修罗",
+                    Duration = 2
+                })
+            end
+        end)
+
+        StarterGui:SetCore("SendNotification", {
+            Title = "付费功能",
+            Text = "已开启一刀修罗界面",
+            Duration = 2,
+            Icon = "rbxassetid://128981664025072"
+        })
     end,
 })
 
