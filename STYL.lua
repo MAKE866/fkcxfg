@@ -1685,4 +1685,358 @@ local function matAddHighlight(obj)
     hl.Name = "Highlight_ESP"
     hl.Adornee = obj
     hl.FillColor = Color3.fromRGB(255, 255, 255)
-    hl.OutlineColor = Color3.fromRGB(255, 255, 255
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0.5
+    hl.Parent = obj
+    matHList[obj] = hl
+
+    matAddLabel(obj)
+end
+
+local function matRemoveHighlight(obj)
+    if matHList[obj] then
+        matHList[obj]:Destroy()
+        matHList[obj] = nil
+    end
+    matRemoveLabel(obj)
+end
+
+local function matClearAll()
+    for obj, _ in pairs(matHList) do matRemoveHighlight(obj) end
+    for obj, _ in pairs(matDLabels) do matRemoveLabel(obj) end
+end
+
+local function matScanInteractables()
+    if not matEnabled then return end
+    matClearAll()
+
+    local count = 0
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if isInteractable(obj) then
+            matAddHighlight(obj)
+            count = count + 1
+        end
+    end
+end
+
+local function matUpdateDistances()
+    if not matEnabled then return end
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    for obj, labels in pairs(matDLabels) do
+        if labels and labels.dist and labels.dist.Parent and obj and obj.Parent then
+            local pos = obj.Position
+            if pos then
+                local dist = (hrp.Position - pos).Magnitude
+                labels.dist.Text = string.format("%.1fm", dist)
+            end
+        end
+    end
+end
+
+local matAddConn = nil
+
+Tab7:CreateToggle({
+    Name = "材料透视",
+    CurrentValue = false,
+    Flag = "MaterialEspToggle",
+    Ext = true,
+    Callback = function(Value)
+        matEnabled = Value
+        if Value then
+            matClearAll()
+            if not matAddConn then
+                matAddConn = Workspace.DescendantAdded:Connect(function(obj)
+                    task.wait(0.1)
+                    if matEnabled and isInteractable(obj) then
+                        matAddHighlight(obj)
+                    end
+                end)
+            end
+            if not matDistConn then matDistConn = RunService.Heartbeat:Connect(matUpdateDistances) end
+            if not matScanConn then matScanConn = RunService.Heartbeat:Connect(matScanInteractables) end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            if matAddConn then matAddConn:Disconnect(); matAddConn = nil end
+            if matDistConn then matDistConn:Disconnect(); matDistConn = nil end
+            if matScanConn then matScanConn:Disconnect(); matScanConn = nil end
+            matClearAll()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+Tab8:CreateToggle({
+    Name = "直升机商店",
+    CurrentValue = false,
+    Flag = "HeliShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("003-A")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启直升机商店" or "已关闭直升机商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab8:CreateToggle({
+    Name = "泰坦电视2.0装备商店",
+    CurrentValue = false,
+    Flag = "TVShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("UpgradeTVShop")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦电视2.0装备商店" or "已关闭泰坦电视2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab8:CreateToggle({
+    Name = "泰坦音响2.0装备商店",
+    CurrentValue = false,
+    Flag = "UTSMShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("ConfirmUTSM")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦音响2.0装备商店" or "已关闭泰坦音响2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab8:CreateToggle({
+    Name = "泰坦监控2.0装备商店",
+    CurrentValue = false,
+    Flag = "CameraShopToggle",
+    Ext = true,
+    Callback = function(Value)
+        local target = playerGui:FindFirstChild("UpgradeCameraShop")
+        if target then
+            target.Enabled = Value
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启泰坦监控2.0装备商店" or "已关闭泰坦监控2.0装备商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到商店", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local isBuyingC4 = false
+Tab8:CreateButton({
+    Name = "导弹人装备升级",
+    Ext = true,
+    Callback = function()
+        if isBuyingC4 then return end
+        isBuyingC4 = true
+        local nukeTitanSet = ReplicatedStorage:FindFirstChild("NukeTitanSet")
+        if nukeTitanSet then
+            pcall(function()
+                nukeTitanSet:FireServer("BuyC4s")
+            end)
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已购买 C4 装备", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到装备", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+        task.wait(1)
+        isBuyingC4 = false
+    end,
+})
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+UserInputService.MouseIconEnabled = false
+
+local autoClickRunning = false
+local autoClickJob = nil
+
+local function tapGachaButton()
+    local gacha = LocalPlayer:FindFirstChild("GachaMomment")
+    if not gacha then return false end
+    local absPos = gacha.AbsolutePosition
+    local absSize = gacha.AbsoluteSize
+    if absPos.X == 0 and absPos.Y == 0 then return false end
+    local centerX = absPos.X + absSize.X / 2
+    local centerY = absPos.Y + absSize.Y / 2
+    local touchId = math.random(1000, 9999)
+    VirtualInputManager:SendTouchEvent(touchId, 0, centerX, centerY)
+    task.wait(0.02)
+    VirtualInputManager:SendTouchEvent(touchId, 1, centerX, centerY)
+    task.wait(0.02)
+    VirtualInputManager:SendTouchEvent(touchId, 2, centerX, centerY)
+    return true
+end
+
+Tab3:CreateToggle({
+    Name = "自动点击抽奖",
+    CurrentValue = false,
+    Flag = "AutoClickGachaToggle",
+    Ext = true,
+    Callback = function(Value)
+        if Value then
+            if not autoClickRunning then
+                autoClickRunning = true
+                autoClickJob = task.spawn(function()
+                    while autoClickRunning do
+                        if not tapGachaButton() then
+                            task.wait(0.5)
+                        else
+                            task.wait(0.05)
+                        end
+                    end
+                end)
+                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            end
+        else
+            autoClickRunning = false
+            if autoClickJob then
+                task.cancel(autoClickJob)
+                autoClickJob = nil
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local whitelist = {"SA_BERROXY"}
+local function checkIsWhitelisted()
+    local name = LocalPlayer.Name
+    local display = LocalPlayer.DisplayName
+    for _, w in ipairs(whitelist) do
+        if name == w or display == w then
+            return true
+        end
+    end
+    return false
+end
+
+Tab9:CreateButton({
+    Name = "一刀修罗",
+    Ext = true,
+    Callback = function()
+        if not checkIsWhitelisted() then
+            StarterGui:SetCore("SendNotification", {
+                Title = "付费功能",
+                Text = "您无权使用此功能，仅限白名单用户",
+                Duration = 3,
+                Icon = "rbxassetid://128981664025072"
+            })
+            return
+        end
+
+        local existingUI = LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("SkillSwitchUI")
+        if existingUI then
+            existingUI:Destroy()
+            StarterGui:SetCore("SendNotification", {
+                Title = "付费功能",
+                Text = "已关闭一刀修罗界面",
+                Duration = 2,
+                Icon = "rbxassetid://128981664025072"
+            })
+            return
+        end
+
+        local ScreenUI = Instance.new("ScreenGui")
+        ScreenUI.Name = "SkillSwitchUI"
+        ScreenUI.ResetOnSpawn = false
+        ScreenUI.IgnoreGuiInset = true
+        ScreenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        ScreenUI.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+        local SkillBtn = Instance.new("TextButton")
+        SkillBtn.Size = UDim2.new(0, 160, 0, 50)
+        SkillBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
+        SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
+        SkillBtn.TextColor3 = Color3.new(1, 1, 1)
+        SkillBtn.Font = Enum.Font.SourceSansBold
+        SkillBtn.TextSize = 18
+        SkillBtn.Text = "开启一刀修罗"
+        SkillBtn.Draggable = true
+        SkillBtn.Parent = ScreenUI
+
+        local isDragging = false
+        local dragStart, startPos
+        SkillBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                isDragging = true
+                dragStart = input.Position
+                startPos = SkillBtn.AbsolutePosition
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if isDragging and input.UserInputType == Enum.UserInputType.TouchMovement then
+                local delta = input.Position - dragStart
+                SkillBtn.Position = UDim2.new(0, startPos.X + delta.X, 0, startPos.Y + delta.Y)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.TouchEnd then
+                isDragging = false
+            end
+        end)
+
+        local SkillSwitch = false
+        local function RunSkill()
+            task.spawn(function()
+                while task.wait(0.3) do
+                    if not SkillSwitch then break end
+                    local args = {{Skill = "Kaijin"}}
+                    pcall(function()
+                        ReplicatedStorage:WaitForChild("HeadCaptainOfCCTVSet"):FireServer(unpack(args))
+                    end)
+                end
+            end)
+        end
+
+        SkillBtn.MouseButton1Click:Connect(function()
+            SkillSwitch = not SkillSwitch
+            if SkillSwitch then
+                SkillBtn.BackgroundColor3 = Color3.fromRGB(30, 180, 60)
+                SkillBtn.Text = "关闭一刀修罗"
+                RunSkill()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "功能提示",
+                    Text = "已开启一刀修罗",
+                    Duration = 2
+                })
+            else
+                SkillBtn.BackgroundColor3 = Color3.fromRGB(20, 120, 220)
+                SkillBtn.Text = "开启一刀修罗"
+                StarterGui:SetCore("SendNotification", {
+                    Title = "功能提示",
+                    Text = "已关闭一刀修罗",
+                    Duration = 2
+                })
+            end
+        end)
+
+        StarterGui:SetCore("SendNotification", {
+            Title = "付费功能",
+            Text = "已开启一刀修罗界面",
+            Duration = 2,
+            Icon = "rbxassetid://128981664025072"
+        })
+    end,
+})
+
+task.spawn(function()
+    StarterGui:SetCore("SendNotification", { Title = "st封锁战线已加载", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
+    task.wait(3)
+    StarterGui:SetCore("SendNotification", { Title = "每天周日更新", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
+    task.wait(3)
+    StarterGui:SetCore("SendNotification", { Title = "感谢你的支持", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
+end)
