@@ -89,6 +89,25 @@ Tab1:CreateButton({
     end,
 })
 
+Tab1:CreateToggle({
+    Name = "背包界面",
+    CurrentValue = false,
+    Flag = "InventoryToggle",
+    Ext = true,
+    Callback = function(Value)
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if playerGui then
+            local inv = playerGui:FindFirstChild("Inventory")
+            if inv then
+                inv.Enabled = Value
+                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启背包界面" or "已关闭背包界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            else
+                StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 Inventory 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            end
+        end
+    end,
+})
+
 local spinLoopConnection = nil
 Tab3:CreateToggle({
     Name = "自动百抽",
@@ -1598,6 +1617,156 @@ Tab7:CreateToggle({
         else
             destroyGachaStatUI()
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭抽奖统计显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local matEnabled = false
+local matHList = {}
+local matDLabels = {}
+local matDistConn = nil
+local matScanConn = nil
+
+local function isInteractable(obj)
+    if not obj or not obj:IsA("BasePart") then return false end
+    if obj:FindFirstChildWhichIsA("ClickDetector") then return true end
+    if obj:FindFirstChildWhichIsA("ProximityPrompt") then return true end
+    return false
+end
+
+local function matAddLabel(obj)
+    if matDLabels[obj] then return end
+    if not obj or not obj:IsA("BasePart") then return end
+
+    local bill = Instance.new("BillboardGui")
+    bill.Adornee = obj
+    bill.Size = UDim2.new(0, 150, 0, 45)
+    bill.StudsOffset = Vector3.new(0, 2.5, 0)
+    bill.AlwaysOnTop = true
+    bill.MaxDistance = math.huge
+    bill.Parent = obj
+
+    local nameLabel = Instance.new("TextLabel", bill)
+    nameLabel.Size = UDim2.new(1, 0, 0.6, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = obj.Name
+    nameLabel.TextColor3 = Color3.fromRGB(0, 162, 255) -- 改为蓝色
+    nameLabel.TextSize = 11
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextStrokeTransparency = 0.3
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+    local distLabel = Instance.new("TextLabel", bill)
+    distLabel.Size = UDim2.new(1, 0, 0.4, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.6, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "0m"
+    distLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    distLabel.TextSize = 9
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+    matDLabels[obj] = {name = nameLabel, dist = distLabel}
+end
+
+local function matRemoveLabel(obj)
+    if matDLabels[obj] then
+        local bill = matDLabels[obj].name.Parent
+        if bill then bill:Destroy() end
+        matDLabels[obj] = nil
+    end
+end
+
+local function matAddHighlight(obj)
+    if matHList[obj] then return end
+    if not obj or not obj:IsA("BasePart") then return end
+    if obj:FindFirstChild("Highlight_ESP") then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "Highlight_ESP"
+    hl.Adornee = obj
+    hl.FillColor = Color3.fromRGB(255, 255, 255)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0.5
+    hl.Parent = obj
+    matHList[obj] = hl
+
+    matAddLabel(obj)
+end
+
+local function matRemoveHighlight(obj)
+    if matHList[obj] then
+        matHList[obj]:Destroy()
+        matHList[obj] = nil
+    end
+    matRemoveLabel(obj)
+end
+
+local function matClearAll()
+    for obj, _ in pairs(matHList) do matRemoveHighlight(obj) end
+    for obj, _ in pairs(matDLabels) do matRemoveLabel(obj) end
+end
+
+local function matScanInteractables()
+    if not matEnabled then return end
+    matClearAll()
+
+    local count = 0
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if isInteractable(obj) then
+            matAddHighlight(obj)
+            count = count + 1
+        end
+    end
+end
+
+local function matUpdateDistances()
+    if not matEnabled then return end
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    for obj, labels in pairs(matDLabels) do
+        if labels and labels.dist and labels.dist.Parent and obj and obj.Parent then
+            local pos = obj.Position
+            if pos then
+                local dist = (hrp.Position - pos).Magnitude
+                labels.dist.Text = string.format("%.1fm", dist)
+            end
+        end
+    end
+end
+
+local matAddConn = nil
+
+Tab7:CreateToggle({
+    Name = "材料透视",
+    CurrentValue = false,
+    Flag = "MaterialEspToggle",
+    Ext = true,
+    Callback = function(Value)
+        matEnabled = Value
+        if Value then
+            matClearAll()
+            if not matAddConn then
+                matAddConn = Workspace.DescendantAdded:Connect(function(obj)
+                    task.wait(0.1)
+                    if matEnabled and isInteractable(obj) then
+                        matAddHighlight(obj)
+                    end
+                end)
+            end
+            if not matDistConn then matDistConn = RunService.Heartbeat:Connect(matUpdateDistances) end
+            if not matScanConn then matScanConn = RunService.Heartbeat:Connect(matScanInteractables) end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            if matAddConn then matAddConn:Disconnect(); matAddConn = nil end
+            if matDistConn then matDistConn:Disconnect(); matDistConn = nil end
+            if matScanConn then matScanConn:Disconnect(); matScanConn = nil end
+            matClearAll()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
 })
