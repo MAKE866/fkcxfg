@@ -1,26 +1,4 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local originalCreateButton = Rayfield.CreateButton
-local originalCreateToggle = Rayfield.CreateToggle
-
-Rayfield.CreateButton = function(self, settings)
-    local originalCallback = settings.Callback
-    settings.Callback = function(...)
-        pcall(function()
-            if originalCallback then originalCallback(...) end
-        end)
-    end
-    return originalCreateButton(self, settings)
-end
-
-Rayfield.CreateToggle = function(self, settings)
-    local originalCallback = settings.Callback
-    settings.Callback = function(...)
-        pcall(function()
-            if originalCallback then originalCallback(...) end
-        end)
-    end
-    return originalCreateToggle(self, settings)
-end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -49,7 +27,7 @@ end
 setupAntiAFK()
 
 local Window = Rayfield:CreateWindow({
-    Name = "st封锁战线",
+    Name = "银狼脚本",
     LoadingTitle = "银狼脚本",
     LoadingSubtitle = "ST封锁战线",
     ShowText = "银狼脚本",
@@ -2056,7 +2034,7 @@ Tab9:CreateButton({
 })
 
 task.spawn(function()
-    StarterGui:SetCore("SendNotification", { Title = "银狼脚本已加载", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
+    StarterGui:SetCore("SendNotification", { Title = "已加载银狼脚本", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
     task.wait(3)
     StarterGui:SetCore("SendNotification", { Title = "每天周日更新", Text = " ", Duration = 3, Icon = "rbxassetid://128981664025072" })
     task.wait(3)
