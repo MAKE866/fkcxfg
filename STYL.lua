@@ -123,6 +123,8 @@ Tab1:CreateToggle({
             if inv then
                 inv.Enabled = Value
                 StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = Value and "已开启背包界面" or "已关闭背包界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            else
+                StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "找不到 Inventory 界面", Duration = 2, Icon = "rbxassetid://128981664025072" })
             end
         end
     end,
