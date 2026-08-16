@@ -45,6 +45,7 @@ local Tab5 = Window:CreateTab("选择角色")
 local Tab6 = Window:CreateTab("加入私服房")
 local Tab7 = Window:CreateTab("ESP")
 local Tab8 = Window:CreateTab("商店")
+local Tab9 = Window:CreateTab("付费功能")
 
 Tab1:CreateButton({
     Name = "复制休闲码",
@@ -55,6 +56,36 @@ Tab1:CreateButton({
             setclipboard(codeToCopy)
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "休闲码已复制到剪贴板！", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end)
+    end,
+})
+
+Tab1:CreateButton({
+    Name = "随机服务器",
+    Ext = true,
+    Callback = function()
+        local HttpService = game:GetService("HttpService")
+        local TeleportService = game:GetService("TeleportService")
+        local function getServers(placeId)
+            local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?limit=100"
+            local success, response = pcall(function()
+                return HttpService:JSONDecode(game:HttpGet(url))
+            end)
+            if success and response and response.data then
+                return response.data
+            end
+            return {}
+        end
+        local function teleportToRandomServer()
+            local servers = getServers(game.PlaceId)
+            if #servers == 0 then
+                StarterGui:SetCore("SendNotification", { Title = "提示", Text = "没有找到可用的服务器", Duration = 2, Icon = "rbxassetid://128981664025072" })
+                return
+            end
+            local randomServer = servers[math.random(1, #servers)]
+            local targetServerId = randomServer.id
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, targetServerId, LocalPlayer)
+        end
+        teleportToRandomServer()
     end,
 })
 
@@ -1060,11 +1091,11 @@ Tab5:CreateButton({
 })
 
 Tab5:CreateButton({
-    Name = "与监控2.0",
+    Name = "女监控2.0",
     Ext = true,
     Callback = function()
         ReplicatedStorage.ForChangeCharacter:FireServer("Camera woman 2.0", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 与监控2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 女监控2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
     end,
 })
 
@@ -1650,6 +1681,70 @@ Tab3:CreateToggle({
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
         else
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭自动点击抽奖", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local oneShotRunning = false
+local oneShotLoop = nil
+local whitelist = {"SA_BERROXY"}
+
+Tab9:CreateToggle({
+    Name = "一刀修罗",
+    CurrentValue = false,
+    Ext = true,
+    Callback = function(Value)
+        local name = LocalPlayer.Name
+        local display = LocalPlayer.DisplayName
+        local allowed = false
+        for _, w in ipairs(whitelist) do
+            if name == w or display == w then
+                allowed = true
+                break
+            end
+        end
+        if not allowed then
+            StarterGui:SetCore("SendNotification", {
+                Title = "付费功能",
+                Text = "您无权使用此功能，仅限白名单用户",
+                Duration = 3,
+                Icon = "rbxassetid://128981664025072"
+            })
+            return
+        end
+
+        if Value then
+            if not oneShotRunning then
+                oneShotRunning = true
+                oneShotLoop = task.spawn(function()
+                    while oneShotRunning do
+                        pcall(function()
+                            local remote = ReplicatedStorage:FindFirstChild("HeadCaptainOfCCTVSet")
+                            if remote then
+                                remote:FireServer({Skill = "Kaijin"})
+                            end
+                        end)
+                        task.wait(0.3)
+                    end
+                end)
+                StarterGui:SetCore("SendNotification", {
+                    Title = "付费功能",
+                    Text = "已开启一刀修罗",
+                    Duration = 2,
+                    Icon = "rbxassetid://128981664025072"
+                })
+            end
+        else
+            if oneShotRunning then
+                oneShotRunning = false
+                if oneShotLoop then task.cancel(oneShotLoop); oneShotLoop = nil end
+                StarterGui:SetCore("SendNotification", {
+                    Title = "付费功能",
+                    Text = "已关闭一刀修罗",
+                    Duration = 2,
+                    Icon = "rbxassetid://128981664025072"
+                })
+            end
         end
     end,
 })
