@@ -1503,6 +1503,111 @@ Tab7:CreateToggle({
     end,
 })
 
+-- ===== ESP标签页新增：抽奖统计显示 =====
+local gachaStatEnabled = false
+local gachaStatScreenGui = nil
+local gachaStatMainLabel = nil
+local gachaStatTotal = {Common = 0, Epic = 0, Legendary = 0, Mythic = 0}
+local gachaStatTotal100Spins = 0
+
+local function createGachaStatUI()
+    if gachaStatScreenGui then return end
+    gachaStatScreenGui = Instance.new("ScreenGui")
+    gachaStatScreenGui.Name = "GachaStatUI"
+    gachaStatScreenGui.Parent = game:GetService("CoreGui")
+    gachaStatScreenGui.DisplayOrder = 999
+    gachaStatScreenGui.Enabled = true
+
+    gachaStatMainLabel = Instance.new("TextLabel")
+    gachaStatMainLabel.Size = UDim2.new(0.5, 0, 0.07, 0)
+    gachaStatMainLabel.Position = UDim2.new(0.25, 0, 0.02, 0)
+    gachaStatMainLabel.BackgroundTransparency = 1
+    gachaStatMainLabel.TextColor3 = Color3.new(1, 1, 1)
+    gachaStatMainLabel.TextScaled = true
+    gachaStatMainLabel.Font = Enum.Font.Gotham
+    gachaStatMainLabel.ZIndex = 10
+    gachaStatMainLabel.Text = "普通:0 史诗:0 传说:0 神话:0"
+    gachaStatMainLabel.Parent = gachaStatScreenGui
+end
+
+local function destroyGachaStatUI()
+    if gachaStatScreenGui then
+        gachaStatScreenGui:Destroy()
+        gachaStatScreenGui = nil
+        gachaStatMainLabel = nil
+    end
+    gachaStatTotal = {Common = 0, Epic = 0, Legendary = 0, Mythic = 0}
+    gachaStatTotal100Spins = 0
+end
+
+local function updateGachaStatLabel()
+    if gachaStatMainLabel then
+        gachaStatMainLabel.Text = string.format("普通:%d 史诗:%d 传说:%d 神话:%d",
+            gachaStatTotal.Common, gachaStatTotal.Epic, gachaStatTotal.Legendary, gachaStatTotal.Mythic)
+    end
+end
+
+-- 监听抽奖事件（只连接一次）
+local gachaStatConnection = nil
+local function setupGachaStatListener()
+    if gachaStatConnection then return end
+    local GachaCharacter = ReplicatedStorage:FindFirstChild("GachaCharacter")
+    if not GachaCharacter then return end
+    gachaStatConnection = GachaCharacter.OnClientEvent:Connect(function(data, ...)
+        if type(data) ~= "table" then return end
+        if not gachaStatEnabled then return end
+        local counts = {}
+        for _, item in ipairs(data) do
+            local rarity = item[2]
+            counts[rarity] = (counts[rarity] or 0) + 1
+        end
+        gachaStatTotal.Common = gachaStatTotal.Common + (counts["Common"] or 0)
+        gachaStatTotal.Epic = gachaStatTotal.Epic + (counts["Epic"] or 0)
+        gachaStatTotal.Legendary = gachaStatTotal.Legendary + (counts["Legendary"] or 0)
+        gachaStatTotal.Mythic = gachaStatTotal.Mythic + (counts["Mythic"] or 0)
+        updateGachaStatLabel()
+    end)
+
+    -- 监听100抽统计（通过拦截FireServer）
+    local oldFire = GachaCharacter.FireServer
+    GachaCharacter.FireServer = function(self, ...)
+        local args = {...}
+        for _, arg in pairs(args) do
+            if type(arg) == "string" and arg:lower():find("100") then
+                gachaStatTotal100Spins = gachaStatTotal100Spins + 1
+                if gachaStatEnabled then
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "100抽统计",
+                        Text = "已进行 " .. gachaStatTotal100Spins .. " 次100抽",
+                        Duration = 4
+                    })
+                end
+                break
+            end
+        end
+        return oldFire(self, ...)
+    end
+end
+
+Tab7:CreateToggle({
+    Name = "抽奖统计显示",
+    CurrentValue = false,
+    Flag = "GachaStatToggle",
+    Ext = true,
+    Callback = function(Value)
+        gachaStatEnabled = Value
+        if Value then
+            setupGachaStatListener()
+            createGachaStatUI()
+            updateGachaStatLabel()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启抽奖统计显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            destroyGachaStatUI()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭抽奖统计显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 Tab8:CreateToggle({
@@ -1589,59 +1694,6 @@ Tab8:CreateButton({
         isBuyingC4 = false
     end,
 })
-
-local GachaCharacter = ReplicatedStorage:FindFirstChild("GachaCharacter")
-if GachaCharacter then
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Parent = game:GetService("CoreGui")
-    screenGui.DisplayOrder = 999
-
-    local mainLabel = Instance.new("TextLabel")
-    mainLabel.Size = UDim2.new(0.5, 0, 0.07, 0)
-    mainLabel.Position = UDim2.new(0.25, 0, 0.02, 0)
-    mainLabel.BackgroundTransparency = 1
-    mainLabel.TextColor3 = Color3.new(1, 1, 1)
-    mainLabel.TextScaled = true
-    mainLabel.Font = Enum.Font.Gotham
-    mainLabel.ZIndex = 10
-    mainLabel.Text = "普通:0 史诗:0 传说:0 神话:0"
-    mainLabel.Parent = screenGui
-
-    local total = {Common = 0, Epic = 0, Legendary = 0, Mythic = 0}
-    local total100Spins = 0
-
-    GachaCharacter.OnClientEvent:Connect(function(data, ...)
-        if type(data) ~= "table" then return end
-        local counts = {}
-        for _, item in ipairs(data) do
-            local rarity = item[2]
-            counts[rarity] = (counts[rarity] or 0) + 1
-        end
-        total.Common = total.Common + (counts["Common"] or 0)
-        total.Epic = total.Epic + (counts["Epic"] or 0)
-        total.Legendary = total.Legendary + (counts["Legendary"] or 0)
-        total.Mythic = total.Mythic + (counts["Mythic"] or 0)
-        mainLabel.Text = string.format("普通:%d 史诗:%d 传说:%d 神话:%d",
-            total.Common, total.Epic, total.Legendary, total.Mythic)
-    end)
-
-    local oldFire = GachaCharacter.FireServer
-    GachaCharacter.FireServer = function(self, ...)
-        local args = {...}
-        for _, arg in pairs(args) do
-            if type(arg) == "string" and arg:lower():find("100") then
-                total100Spins = total100Spins + 1
-                StarterGui:SetCore("SendNotification", {
-                    Title = "100抽统计",
-                    Text = "已进行 " .. total100Spins .. " 次100抽",
-                    Duration = 4
-                })
-                break
-            end
-        end
-        return oldFire(self, ...)
-    end
-end
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService = game:GetService("UserInputService")
