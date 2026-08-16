@@ -1525,7 +1525,7 @@ local function createGachaStatUI()
     gachaStatMainLabel.TextScaled = true
     gachaStatMainLabel.Font = Enum.Font.Gotham
     gachaStatMainLabel.ZIndex = 10
-    gachaStatMainLabel.Text = "普通:0 史诗:0 传说:0 神话:0"
+    gachaStatMainLabel.Text = "普通:" .. gachaStatTotal.Common .. " 史诗:" .. gachaStatTotal.Epic .. " 传说:" .. gachaStatTotal.Legendary .. " 神话:" .. gachaStatTotal.Mythic
     gachaStatMainLabel.Parent = gachaStatScreenGui
 end
 
@@ -1535,14 +1535,11 @@ local function destroyGachaStatUI()
         gachaStatScreenGui = nil
         gachaStatMainLabel = nil
     end
-    gachaStatTotal = {Common = 0, Epic = 0, Legendary = 0, Mythic = 0}
-    gachaStatTotal100Spins = 0
 end
 
 local function updateGachaStatLabel()
     if gachaStatMainLabel then
-        gachaStatMainLabel.Text = string.format("普通:%d 史诗:%d 传说:%d 神话:%d",
-            gachaStatTotal.Common, gachaStatTotal.Epic, gachaStatTotal.Legendary, gachaStatTotal.Mythic)
+        gachaStatMainLabel.Text = "普通:" .. gachaStatTotal.Common .. " 史诗:" .. gachaStatTotal.Epic .. " 传说:" .. gachaStatTotal.Legendary .. " 神话:" .. gachaStatTotal.Mythic
     end
 end
 
@@ -1696,20 +1693,24 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService = game:GetService("UserInputService")
 UserInputService.MouseIconEnabled = false
 
--- 自动点击抽奖功能（修复：可正常关闭，且点击位置在右下角避免点到UI）
 local autoClickRunning = false
 local autoClickJob = nil
 
-local function tapScreen()
-    local screenSize = Workspace.CurrentCamera.ViewportSize
-    local x = screenSize.X - 50   -- 距离右边缘50像素
-    local y = screenSize.Y - 50   -- 距离下边缘50像素
+local function tapGachaButton()
+    local gacha = LocalPlayer:FindFirstChild("GachaMomment")
+    if not gacha then return false end
+    local absPos = gacha.AbsolutePosition
+    local absSize = gacha.AbsoluteSize
+    if absPos.X == 0 and absPos.Y == 0 then return false end
+    local centerX = absPos.X + absSize.X / 2
+    local centerY = absPos.Y + absSize.Y / 2
     local touchId = math.random(1000, 9999)
-    VirtualInputManager:SendTouchEvent(touchId, 0, x, y)
+    VirtualInputManager:SendTouchEvent(touchId, 0, centerX, centerY)
     task.wait(0.02)
-    VirtualInputManager:SendTouchEvent(touchId, 1, x, y)
+    VirtualInputManager:SendTouchEvent(touchId, 1, centerX, centerY)
     task.wait(0.02)
-    VirtualInputManager:SendTouchEvent(touchId, 2, x, y)
+    VirtualInputManager:SendTouchEvent(touchId, 2, centerX, centerY)
+    return true
 end
 
 Tab3:CreateToggle({
@@ -1723,12 +1724,10 @@ Tab3:CreateToggle({
                 autoClickRunning = true
                 autoClickJob = task.spawn(function()
                     while autoClickRunning do
-                        local gachaMomment = LocalPlayer:FindFirstChild("GachaMomment")
-                        if gachaMomment then
-                            tapScreen()
-                            task.wait(0.05)
-                        else
+                        if not tapGachaButton() then
                             task.wait(0.5)
+                        else
+                            task.wait(0.05)
                         end
                     end
                 end)
