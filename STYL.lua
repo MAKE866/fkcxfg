@@ -108,59 +108,83 @@ Tab1:CreateToggle({
     end,
 })
 
-Tab1:CreateButton({
+local deleteShanbenRunning = false
+local deleteShanbenJob = nil
+
+Tab1:CreateToggle({
     Name = "删除山本特效",
+    CurrentValue = false,
+    Flag = "DeleteShanbenToggle",
     Ext = true,
-    Callback = function()
-        local cameraAwaken = ReplicatedStorage:FindFirstChild("CameraAwaken")
-        if cameraAwaken then
-            cameraAwaken:Destroy()
-        end
-        
-        local function deleteCameraUI()
-            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-            if playerGui then
-                for _, gui in pairs(playerGui:GetChildren()) do
-                    if gui:IsA("ScreenGui") then
-                        if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
-                            gui:Destroy()
-                        end
+    Callback = function(Value)
+        if Value then
+            if not deleteShanbenRunning then
+                deleteShanbenRunning = true
+                deleteShanbenJob = task.spawn(function()
+                    while deleteShanbenRunning do
+                        pcall(function()
+                            local cameraAwaken = ReplicatedStorage:FindFirstChild("CameraAwaken")
+                            if cameraAwaken then
+                                cameraAwaken:Destroy()
+                            end
+                            
+                            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+                            if playerGui then
+                                for _, gui in pairs(playerGui:GetChildren()) do
+                                    if gui:IsA("ScreenGui") then
+                                        if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
+                                            gui:Destroy()
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            local coreGui = game:GetService("CoreGui")
+                            for _, gui in pairs(coreGui:GetChildren()) do
+                                if gui:IsA("ScreenGui") then
+                                    if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
+                                        gui:Destroy()
+                                    end
+                                end
+                            end
+                            
+                            local char = LocalPlayer.Character
+                            if char then
+                                local cameraFolder = char:FindFirstChild("Camera")
+                                if cameraFolder then
+                                    local faceCam = cameraFolder:FindFirstChild("Cam")
+                                    if faceCam then
+                                        faceCam:Destroy()
+                                    end
+                                    if #cameraFolder:GetChildren() == 0 then
+                                        cameraFolder:Destroy()
+                                    end
+                                end
+                            end
+                        end)
+                        task.wait(0.5)
                     end
-                end
+                end)
             end
-            
-            local coreGui = game:GetService("CoreGui")
-            for _, gui in pairs(coreGui:GetChildren()) do
-                if gui:IsA("ScreenGui") then
-                    if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
-                        gui:Destroy()
-                    end
-                end
+            StarterGui:SetCore("SendNotification", { 
+                Title = "功能提示", 
+                Text = "已开启删除山本特效", 
+                Duration = 2, 
+                Icon = "rbxassetid://128981664025072" 
+            })
+        else
+            deleteShanbenRunning = false
+            if deleteShanbenJob then
+                task.cancel(deleteShanbenJob)
+                deleteShanbenJob = nil
             end
+            StarterGui:SetCore("SendNotification", { 
+                Title = "功能提示", 
+                Text = "已关闭删除山本特效", 
+                Duration = 2, 
+                Icon = "rbxassetid://128981664025072" 
+            })
         end
-        
-        deleteCameraUI()
-        
-        local char = LocalPlayer.Character
-        if char then
-            local cameraFolder = char:FindFirstChild("Camera")
-            if cameraFolder then
-                local faceCam = cameraFolder:FindFirstChild("Cam")
-                if faceCam then
-                    faceCam:Destroy()
-                end
-                if #cameraFolder:GetChildren() == 0 then
-                    cameraFolder:Destroy()
-                end
-            end
-        end
-        
-        StarterGui:SetCore("SendNotification", { 
-            Title = "功能提示", 
-            Text = "已删除山本特效", 
-            Duration = 2, 
-            Icon = "rbxassetid://128981664025072" 
-        })
     end,
 })
 
@@ -1088,8 +1112,10 @@ Tab4:CreateButton({
     Name = "泰坦电视2.0",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Upgraded Titan TV", 1)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦电视2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Upgraded Titan TV", 1)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦电视2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1097,8 +1123,10 @@ Tab4:CreateButton({
     Name = "泰坦音响2.0",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Upgraded Titan Speaker", 1)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦音响2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Upgraded Titan Speaker", 1)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦音响2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1106,8 +1134,10 @@ Tab4:CreateButton({
     Name = "泰坦监控2.0",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Upgraded Titan Cameraman", 1)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦监控2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Upgraded Titan Cameraman", 1)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦监控2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1115,8 +1145,10 @@ Tab4:CreateButton({
     Name = "泰坦时钟",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Clock Titan", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦时钟", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Clock Titan", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 泰坦时钟", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1124,8 +1156,10 @@ Tab4:CreateButton({
     Name = "x18",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("G-Toilet Z", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 x18", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("G-Toilet Z", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 x18", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1133,8 +1167,10 @@ Tab4:CreateButton({
     Name = "塞壬",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Siren Titan", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 塞壬", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Siren Titan", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 塞壬", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1144,8 +1180,10 @@ Tab5:CreateButton({
     Name = "天文大电视",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Astro Large TV man", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 天文大电视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Astro Large TV man", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 天文大电视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1153,8 +1191,10 @@ Tab5:CreateButton({
     Name = "故障",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Glitch Double plunger", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 故障", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Glitch Double plunger", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 故障", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1162,8 +1202,10 @@ Tab5:CreateButton({
     Name = "反派",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Brown Camera man", 1)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 反派", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Brown Camera man", 1)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 反派", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1171,8 +1213,10 @@ Tab5:CreateButton({
     Name = "音队",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Dark Speakerman", 2)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 音队", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Dark Speakerman", 2)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 音队", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1180,8 +1224,10 @@ Tab5:CreateButton({
     Name = "首席时钟",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Clock Man", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 首席时钟", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Clock Man", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 首席时钟", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1189,8 +1235,10 @@ Tab5:CreateButton({
     Name = "女三体",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Tri Soldier Athena (Girl)", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 女三体", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Tri Soldier Athena (Girl)", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 女三体", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1198,8 +1246,10 @@ Tab5:CreateButton({
     Name = "山本",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Head Captain Of The CCTV", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 山本", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Head Captain Of The CCTV", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 山本", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1207,8 +1257,10 @@ Tab5:CreateButton({
     Name = "普罗米修斯",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Prometheus", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 普罗米修斯", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Prometheus", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 普罗米修斯", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1216,8 +1268,10 @@ Tab5:CreateButton({
     Name = "女监控2.0",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("Camera woman 2.0", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 女监控2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("Camera woman 2.0", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 女监控2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1225,8 +1279,10 @@ Tab5:CreateButton({
     Name = "DJ2.0",
     Ext = true,
     Callback = function()
-        ReplicatedStorage.ForChangeCharacter:FireServer("DJ Toilet 2.0", 0)
-        StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 DJ2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        pcall(function()
+            ReplicatedStorage.ForChangeCharacter:FireServer("DJ Toilet 2.0", 0)
+            StarterGui:SetCore("SendNotification", { Title = "角色切换", Text = "已切换至 DJ2.0", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end)
     end,
 })
 
@@ -1298,6 +1354,7 @@ local function createBillboard(character, player)
     nameLabel.Parent = billboard
 
     local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
     distLabel.Size = UDim2.new(1, 0, 0.4, 0)
     distLabel.Position = UDim2.new(0, 0, 0.6, 0)
     distLabel.BackgroundTransparency = 1
@@ -1376,8 +1433,8 @@ local function updatePlayerDistances()
             if head then
                 local billboard = head:FindFirstChild("PlayerInfo")
                 if billboard then
-                    local distLabel = billboard:FindFirstChild("TextLabel")
-                    if distLabel and distLabel.Position == UDim2.new(0, 0, 0.6, 0) then
+                    local distLabel = billboard:FindFirstChild("DistLabel")
+                    if distLabel then
                         local targetPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChildWhichIsA("BasePart")
                         if targetPart then
                             local dist = (hrp.Position - targetPart.Position).Magnitude
@@ -1728,7 +1785,8 @@ local matDistConn = nil
 local matScanConn = nil
 
 local function isInteractable(obj)
-    if not obj or not obj:IsA("BasePart") then return false end    if obj:FindFirstChildWhichIsA("ClickDetector") then return true end
+    if not obj or not obj:IsA("BasePart") then return false end
+    if obj:FindFirstChildWhichIsA("ClickDetector") then return true end
     if obj:FindFirstChildWhichIsA("ProximityPrompt") then return true end
     return false
 end
