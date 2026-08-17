@@ -1802,15 +1802,16 @@ local matEnabled = false
 local matHList = {}
 local matDLabels = {}
 local matDistConn = nil
-local matScanConn = nil
 
 local blacklist = {
+    "lever",
     "Head",
     "AT",
     "SpecterRoom",
     "ModelDoor",
-    "Lever",
-    "Right arm"
+    "Right arm",
+    "Acid Arm",
+    "Material"
 }
 
 local function isPlayer(model)
@@ -1832,6 +1833,7 @@ local function isBlacklisted(obj)
     for _, name in pairs(blacklist) do
         if obj.Name == name then return true end
         if obj.Parent and obj.Parent.Name == name then return true end
+        if obj.Parent and obj.Parent.Parent and obj.Parent.Parent.Name == name then return true end
     end
     return false
 end
@@ -2002,6 +2004,8 @@ local function matUpdateDistances()
     end
 end
 
+local matDescendantConn = nil
+
 Tab7:CreateToggle({
     Name = "材料透视",
     CurrentValue = false,
@@ -2011,7 +2015,11 @@ Tab7:CreateToggle({
         matEnabled = Value
         if Value then
             scanInteractables()
-            Workspace.DescendantAdded:Connect(function(obj)
+            if matDescendantConn then
+                matDescendantConn:Disconnect()
+                matDescendantConn = nil
+            end
+            matDescendantConn = Workspace.DescendantAdded:Connect(function(obj)
                 task.wait(0.1)
                 if matEnabled and hasInteractable(obj) then
                     local target = obj
@@ -2023,10 +2031,19 @@ Tab7:CreateToggle({
                     end
                 end
             end)
-            if not matDistConn then matDistConn = RunService.Heartbeat:Connect(matUpdateDistances) end
+            if not matDistConn then 
+                matDistConn = RunService.Heartbeat:Connect(matUpdateDistances) 
+            end
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
         else
-            if matDistConn then matDistConn:Disconnect(); matDistConn = nil end
+            if matDescendantConn then
+                matDescendantConn:Disconnect()
+                matDescendantConn = nil
+            end
+            if matDistConn then 
+                matDistConn:Disconnect() 
+                matDistConn = nil 
+            end
             matClearAll()
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
