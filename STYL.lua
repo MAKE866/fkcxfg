@@ -108,6 +108,109 @@ Tab1:CreateToggle({
     end,
 })
 
+Tab1:CreateButton({
+    Name = "删除山本特效",
+    Ext = true,
+    Callback = function()
+        local cameraAwaken = ReplicatedStorage:FindFirstChild("CameraAwaken")
+        if cameraAwaken then
+            cameraAwaken:Destroy()
+        end
+        
+        local function deleteCameraUI()
+            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+            if playerGui then
+                for _, gui in pairs(playerGui:GetChildren()) do
+                    if gui:IsA("ScreenGui") then
+                        if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
+                            gui:Destroy()
+                        end
+                    end
+                end
+            end
+            
+            local coreGui = game:GetService("CoreGui")
+            for _, gui in pairs(coreGui:GetChildren()) do
+                if gui:IsA("ScreenGui") then
+                    if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
+                        gui:Destroy()
+                    end
+                end
+            end
+        end
+        
+        deleteCameraUI()
+        
+        local char = LocalPlayer.Character
+        if char then
+            local cameraFolder = char:FindFirstChild("Camera")
+            if cameraFolder then
+                local faceCam = cameraFolder:FindFirstChild("Cam")
+                if faceCam then
+                    faceCam:Destroy()
+                end
+                if #cameraFolder:GetChildren() == 0 then
+                    cameraFolder:Destroy()
+                end
+            end
+        end
+        
+        StarterGui:SetCore("SendNotification", { 
+            Title = "功能提示", 
+            Text = "已删除山本特效", 
+            Duration = 2, 
+            Icon = "rbxassetid://128981664025072" 
+        })
+    end,
+})
+
+local lockCameraConnection = nil
+Tab1:CreateToggle({
+    Name = "锁定视角",
+    CurrentValue = false,
+    Flag = "LockCameraToggle",
+    Ext = true,
+    Callback = function(Value)
+        if Value then
+            if not lockCameraConnection then
+                lockCameraConnection = RunService.Heartbeat:Connect(function()
+                    local char = LocalPlayer.Character
+                    if not char then return end
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if not hrp then return end
+                    
+                    local camera = workspace.CurrentCamera
+                    if not camera then return end
+                    
+                    local lookVector = camera.CFrame.LookVector
+                    local direction = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+                    
+                    if direction.Magnitude > 0 then
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + direction)
+                    end
+                end)
+            end
+            StarterGui:SetCore("SendNotification", { 
+                Title = "功能提示", 
+                Text = "已开启锁定视角", 
+                Duration = 2, 
+                Icon = "rbxassetid://128981664025072" 
+            })
+        else
+            if lockCameraConnection then
+                lockCameraConnection:Disconnect()
+                lockCameraConnection = nil
+            end
+            StarterGui:SetCore("SendNotification", { 
+                Title = "功能提示", 
+                Text = "已关闭锁定视角", 
+                Duration = 2, 
+                Icon = "rbxassetid://128981664025072" 
+            })
+        end
+    end,
+})
+
 local spinLoopConnection = nil
 Tab3:CreateToggle({
     Name = "自动百抽",
@@ -1625,8 +1728,7 @@ local matDistConn = nil
 local matScanConn = nil
 
 local function isInteractable(obj)
-    if not obj or not obj:IsA("BasePart") then return false end
-    if obj:FindFirstChildWhichIsA("ClickDetector") then return true end
+    if not obj or not obj:IsA("BasePart") then return false end    if obj:FindFirstChildWhichIsA("ClickDetector") then return true end
     if obj:FindFirstChildWhichIsA("ProximityPrompt") then return true end
     return false
 end
