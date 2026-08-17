@@ -1687,11 +1687,19 @@ local gachaStatTotal100Spins = 0
 
 local function createGachaStatUI()
     if gachaStatScreenGui then return end
+    
+    local existingUI = game:GetService("CoreGui"):FindFirstChild("GachaStatUI")
+    if existingUI then
+        existingUI:Destroy()
+    end
+    
     gachaStatScreenGui = Instance.new("ScreenGui")
     gachaStatScreenGui.Name = "GachaStatUI"
     gachaStatScreenGui.Parent = game:GetService("CoreGui")
     gachaStatScreenGui.DisplayOrder = 999
     gachaStatScreenGui.Enabled = true
+    gachaStatScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gachaStatScreenGui.ResetOnSpawn = false
 
     gachaStatMainLabel = Instance.new("TextLabel")
     gachaStatMainLabel.Size = UDim2.new(0.5, 0, 0.07, 0)
@@ -1703,6 +1711,9 @@ local function createGachaStatUI()
     gachaStatMainLabel.ZIndex = 10
     gachaStatMainLabel.Text = "普通:" .. gachaStatTotal.Common .. " 史诗:" .. gachaStatTotal.Epic .. " 传说:" .. gachaStatTotal.Legendary .. " 神话:" .. gachaStatTotal.Mythic
     gachaStatMainLabel.Parent = gachaStatScreenGui
+    
+    task.wait()
+    gachaStatScreenGui.Enabled = true
 end
 
 local function destroyGachaStatUI()
@@ -1710,6 +1721,10 @@ local function destroyGachaStatUI()
         gachaStatScreenGui:Destroy()
         gachaStatScreenGui = nil
         gachaStatMainLabel = nil
+    end
+    local existingUI = game:GetService("CoreGui"):FindFirstChild("GachaStatUI")
+    if existingUI then
+        existingUI:Destroy()
     end
 end
 
@@ -1768,8 +1783,13 @@ Tab7:CreateToggle({
         gachaStatEnabled = Value
         if Value then
             setupGachaStatListener()
+            destroyGachaStatUI()
             createGachaStatUI()
             updateGachaStatLabel()
+            task.wait(0.1)
+            if gachaStatScreenGui then
+                gachaStatScreenGui.Enabled = true
+            end
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启抽奖统计显示", Duration = 2, Icon = "rbxassetid://128981664025072" })
         else
             destroyGachaStatUI()
@@ -1784,31 +1804,96 @@ local matDLabels = {}
 local matDistConn = nil
 local matScanConn = nil
 
-local function isInteractable(obj)
-    if not obj or not obj:IsA("BasePart") then return false end
-    if obj:FindFirstChildWhichIsA("ClickDetector") then return true end
-    if obj:FindFirstChildWhichIsA("ProximityPrompt") then return true end
+local blacklist = {
+    "Head",
+    "AT",
+    "SpecterRoom",
+    "ModelDoor",
+    "Lever",
+    "Right arm"
+}
+
+local function isPlayer(model)
+    if not model or not model:IsA("Model") then return false end
+    if Players:GetPlayerFromCharacter(model) then return true end
+    if model == LocalPlayer.Character then return true end
     return false
+end
+
+local function isNPC(model)
+    if not model or not model:IsA("Model") then return false end
+    if isPlayer(model) then return false end
+    if model:FindFirstChildWhichIsA("Humanoid") then return true end
+    return false
+end
+
+local function isBlacklisted(obj)
+    if not obj then return false end
+    for _, name in pairs(blacklist) do
+        if obj.Name == name then return true end
+        if obj.Parent and obj.Parent.Name == name then return true end
+    end
+    return false
+end
+
+local function hasInteractable(obj)
+    if not obj then return false end
+
+    if obj:IsA("ClickDetector") or obj:IsA("ProximityPrompt") or obj:IsA("TouchInterest") then
+        return true
+    end
+
+    if obj:IsA("Tool") then
+        return true
+    end
+
+    for _, child in pairs(obj:GetDescendants()) do
+        if child:IsA("ClickDetector") then return true end
+        if child:IsA("ProximityPrompt") then return true end
+        if child:IsA("TouchInterest") then return true end
+        if child:IsA("Tool") then return true end
+    end
+
+    return false
+end
+
+local function getAttachPoint(obj)
+    if obj:IsA("BasePart") or obj:IsA("Part") or obj:IsA("MeshPart") or obj:IsA("UnionOperation") then
+        return obj
+    end
+    if obj:IsA("Model") then
+        local hrp = obj:FindFirstChild("HumanoidRootPart")
+        if hrp then return hrp end
+        local anyPart = obj:FindFirstChildWhichIsA("BasePart")
+        if anyPart then return anyPart end
+    end
+    if obj:IsA("Tool") then
+        local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+        if handle then return handle end
+    end
+    return nil
 end
 
 local function matAddLabel(obj)
     if matDLabels[obj] then return end
-    if not obj or not obj:IsA("BasePart") then return end
+
+    local attach = getAttachPoint(obj)
+    if not attach then return end
 
     local bill = Instance.new("BillboardGui")
-    bill.Adornee = obj
-    bill.Size = UDim2.new(0, 150, 0, 45)
-    bill.StudsOffset = Vector3.new(0, 2.5, 0)
+    bill.Adornee = attach
+    bill.Size = UDim2.new(0, 160, 0, 45)
+    bill.StudsOffset = Vector3.new(0, 3, 0)
     bill.AlwaysOnTop = true
     bill.MaxDistance = math.huge
-    bill.Parent = obj
+    bill.Parent = attach
 
     local nameLabel = Instance.new("TextLabel", bill)
     nameLabel.Size = UDim2.new(1, 0, 0.6, 0)
     nameLabel.Position = UDim2.new(0, 0, 0, 0)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = obj.Name
-    nameLabel.TextColor3 = Color3.fromRGB(0, 162, 255)
+    nameLabel.Text = obj.Name or "互动"
+    nameLabel.TextColor3 = Color3.fromRGB(0, 150, 255)
     nameLabel.TextSize = 11
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextStrokeTransparency = 0.3
@@ -1825,7 +1910,7 @@ local function matAddLabel(obj)
     distLabel.TextStrokeTransparency = 0.3
     distLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 
-    matDLabels[obj] = {name = nameLabel, dist = distLabel}
+    matDLabels[obj] = {name = nameLabel, dist = distLabel, attach = attach}
 end
 
 local function matRemoveLabel(obj)
@@ -1838,17 +1923,24 @@ end
 
 local function matAddHighlight(obj)
     if matHList[obj] then return end
-    if not obj or not obj:IsA("BasePart") then return end
-    if obj:FindFirstChild("Highlight_ESP") then return end
+    if not obj then return end
+
+    if isNPC(obj) then return end
+    if isBlacklisted(obj) then return end
+
+    local attach = getAttachPoint(obj)
+    if not attach then return end
+
+    if attach:FindFirstChild("Highlight_ESP") then return end
 
     local hl = Instance.new("Highlight")
     hl.Name = "Highlight_ESP"
-    hl.Adornee = obj
-    hl.FillColor = Color3.fromRGB(255, 255, 255)
+    hl.Adornee = attach
+    hl.FillColor = Color3.fromRGB(0, 100, 255)
     hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-    hl.FillTransparency = 0.7
-    hl.OutlineTransparency = 0.5
-    hl.Parent = obj
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.Parent = attach
     matHList[obj] = hl
 
     matAddLabel(obj)
@@ -1863,19 +1955,30 @@ local function matRemoveHighlight(obj)
 end
 
 local function matClearAll()
-    for obj, _ in pairs(matHList) do matRemoveHighlight(obj) end
-    for obj, _ in pairs(matDLabels) do matRemoveLabel(obj) end
+    for obj, _ in pairs(matHList) do
+        matRemoveHighlight(obj)
+    end
+    for obj, _ in pairs(matDLabels) do
+        matRemoveLabel(obj)
+    end
 end
 
-local function matScanInteractables()
-    if not matEnabled then return end
+local function scanInteractables()
     matClearAll()
 
     local count = 0
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if isInteractable(obj) then
-            matAddHighlight(obj)
-            count = count + 1
+        if hasInteractable(obj) then
+            if not isNPC(obj) then
+                local target = obj
+                if obj:IsA("ClickDetector") or obj:IsA("ProximityPrompt") or obj:IsA("TouchInterest") then
+                    target = obj.Parent
+                end
+                if target and not isBlacklisted(target) then
+                    matAddHighlight(target)
+                    count = count + 1
+                end
+            end
         end
     end
 end
@@ -1886,17 +1989,18 @@ local function matUpdateDistances()
     if not hrp then return end
 
     for obj, labels in pairs(matDLabels) do
-        if labels and labels.dist and labels.dist.Parent and obj and obj.Parent then
-            local pos = obj.Position
-            if pos then
-                local dist = (hrp.Position - pos).Magnitude
-                labels.dist.Text = string.format("%.1fm", dist)
+        if labels and labels.dist and labels.dist.Parent then
+            local attach = labels.attach
+            if attach and attach.Parent then
+                local pos = attach.Position
+                if pos then
+                    local dist = (hrp.Position - pos).Magnitude
+                    labels.dist.Text = string.format("%.1fm", dist)
+                end
             end
         end
     end
 end
-
-local matAddConn = nil
 
 Tab7:CreateToggle({
     Name = "材料透视",
@@ -1906,22 +2010,23 @@ Tab7:CreateToggle({
     Callback = function(Value)
         matEnabled = Value
         if Value then
-            matClearAll()
-            if not matAddConn then
-                matAddConn = Workspace.DescendantAdded:Connect(function(obj)
-                    task.wait(0.1)
-                    if matEnabled and isInteractable(obj) then
-                        matAddHighlight(obj)
+            scanInteractables()
+            Workspace.DescendantAdded:Connect(function(obj)
+                task.wait(0.1)
+                if matEnabled and hasInteractable(obj) then
+                    local target = obj
+                    if obj:IsA("ClickDetector") or obj:IsA("ProximityPrompt") or obj:IsA("TouchInterest") then
+                        target = obj.Parent
                     end
-                end)
-            end
+                    if target and not isNPC(target) and not isBlacklisted(target) then
+                        matAddHighlight(target)
+                    end
+                end
+            end)
             if not matDistConn then matDistConn = RunService.Heartbeat:Connect(matUpdateDistances) end
-            if not matScanConn then matScanConn = RunService.Heartbeat:Connect(matScanInteractables) end
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
         else
-            if matAddConn then matAddConn:Disconnect(); matAddConn = nil end
             if matDistConn then matDistConn:Disconnect(); matDistConn = nil end
-            if matScanConn then matScanConn:Disconnect(); matScanConn = nil end
             matClearAll()
             StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭材料透视", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
