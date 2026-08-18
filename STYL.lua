@@ -47,6 +47,24 @@ local Tab7 = Window:CreateTab("ESP")
 local Tab8 = Window:CreateTab("商店")
 local Tab9 = Window:CreateTab("付费功能")
 
+local speedVal = 0
+Tab1:CreateInput({
+    Name = "CFrame移速",
+    PlaceholderText = "", 
+    RemoveTextAfterFocusLost = false,
+    Callback = function(t)
+        local n = tonumber(t)
+        if n then speedVal = n else speedVal = 0 end
+    end,
+})
+RunService.Stepped:Connect(function()
+    if speedVal > 0 and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local h = LocalPlayer.Character.HumanoidRootPart
+        local d = LocalPlayer.Character.Humanoid.MoveDirection
+        h.CFrame = h.CFrame + (d * speedVal)
+    end
+end)
+
 Tab1:CreateButton({
     Name = "复制休闲码",
     Ext = true,
@@ -110,6 +128,59 @@ Tab1:CreateToggle({
 
 local deleteShanbenRunning = false
 local deleteShanbenJob = nil
+local deleteShanbenConn = nil
+
+local eventsToDelete = {
+    "CameraAwaken",
+    "Kaijin",
+    "TekrinnDialogueRemote",
+    "CameraAwakenV2",
+    "CameraAwakenHeadCap",
+    "Kakajumon"
+}
+
+local function deleteEvents()
+    for _, name in pairs(eventsToDelete) do
+        local event = ReplicatedStorage:FindFirstChild(name)
+        if event then
+            event:Destroy()
+        end
+    end
+end
+
+local function clearDialogueUI()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    local coreGui = game:GetService("CoreGui")
+    if playerGui then
+        for _, gui in pairs(playerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                local name = gui.Name:lower()
+                if name:find("dialogue") or name:find("dialog") then
+                    gui:Destroy()
+                end
+            end
+        end
+    end
+    for _, gui in pairs(coreGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            local name = gui.Name:lower()
+            if name:find("dialogue") or name:find("dialog") then
+                gui:Destroy()
+            end
+        end
+    end
+end
+
+local function stopAnimations()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    if not humanoid then return end
+    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+        track:Stop()
+        track:Destroy()
+    end
+end
 
 Tab1:CreateToggle({
     Name = "删除山本特效",
@@ -120,49 +191,34 @@ Tab1:CreateToggle({
         if Value then
             if not deleteShanbenRunning then
                 deleteShanbenRunning = true
+                
+                deleteEvents()
+                clearDialogueUI()
+                stopAnimations()
+                
+                if deleteShanbenConn then
+                    deleteShanbenConn:Disconnect()
+                    deleteShanbenConn = nil
+                end
+                deleteShanbenConn = ReplicatedStorage.ChildAdded:Connect(function(child)
+                    task.wait(0.1)
+                    if deleteShanbenRunning then
+                        for _, name in pairs(eventsToDelete) do
+                            if child.Name == name then
+                                child:Destroy()
+                            end
+                        end
+                    end
+                end)
+                
                 deleteShanbenJob = task.spawn(function()
                     while deleteShanbenRunning do
-                        pcall(function()
-                            local cameraAwaken = ReplicatedStorage:FindFirstChild("CameraAwaken")
-                            if cameraAwaken then
-                                cameraAwaken:Destroy()
-                            end
-                            
-                            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-                            if playerGui then
-                                for _, gui in pairs(playerGui:GetChildren()) do
-                                    if gui:IsA("ScreenGui") then
-                                        if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
-                                            gui:Destroy()
-                                        end
-                                    end
-                                end
-                            end
-                            
-                            local coreGui = game:GetService("CoreGui")
-                            for _, gui in pairs(coreGui:GetChildren()) do
-                                if gui:IsA("ScreenGui") then
-                                    if gui.Name:find("Camera") or gui.Name:find("FaceCam") or gui.Name:find("Cam") then
-                                        gui:Destroy()
-                                    end
-                                end
-                            end
-                            
-                            local char = LocalPlayer.Character
-                            if char then
-                                local cameraFolder = char:FindFirstChild("Camera")
-                                if cameraFolder then
-                                    local faceCam = cameraFolder:FindFirstChild("Cam")
-                                    if faceCam then
-                                        faceCam:Destroy()
-                                    end
-                                    if #cameraFolder:GetChildren() == 0 then
-                                        cameraFolder:Destroy()
-                                    end
-                                end
-                            end
-                        end)
-                        task.wait(0.5)
+                        task.wait(1)
+                        if deleteShanbenRunning then
+                            deleteEvents()
+                            clearDialogueUI()
+                            stopAnimations()
+                        end
                     end
                 end)
             end
@@ -177,6 +233,10 @@ Tab1:CreateToggle({
             if deleteShanbenJob then
                 task.cancel(deleteShanbenJob)
                 deleteShanbenJob = nil
+            end
+            if deleteShanbenConn then
+                deleteShanbenConn:Disconnect()
+                deleteShanbenConn = nil
             end
             StarterGui:SetCore("SendNotification", { 
                 Title = "功能提示", 
@@ -231,6 +291,297 @@ Tab1:CreateToggle({
                 Duration = 2, 
                 Icon = "rbxassetid://128981664025072" 
             })
+        end
+    end,
+})
+
+Tab1:CreateToggle({
+    Name = "zuts远距离跟随",
+    CurrentValue = false,
+    Flag = "MonsterFollowToggle",
+    Ext = true,
+    Callback = function(v)
+        if v then
+            if not fConn then
+                fConn = RunService.Heartbeat:Connect(function()
+                    pcall(function()
+                        local c = LocalPlayer.Character
+                        if not c then return end
+                        local h = c:FindFirstChild("HumanoidRootPart")
+                        if not h then return end
+                        local l = Workspace:FindFirstChild("Living")
+                        if not l then return end
+                        local t = l:FindFirstChild("Zombie Upgraded Titan Speaker V2")
+                        if not t then return end
+                        local th = t:FindFirstChild("HumanoidRootPart")
+                        if not th then return end
+                        h.CFrame = CFrame.new(th.Position + Vector3.new(90, 15, -130), th.Position)
+                    end)
+                end)
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启zuts远距离跟随", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            if fConn then fConn:Disconnect(); fConn = nil end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭zuts远距离跟随", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local fConn = nil
+
+local missileLoopRunning = false
+local missileJob = nil
+
+Tab1:CreateToggle({
+    Name = "删除导弹特效",
+    CurrentValue = false,
+    Flag = "DeleteMissileToggle",
+    Ext = true,
+    Callback = function(Value)
+        if Value then
+            if not missileLoopRunning then
+                missileLoopRunning = true
+                missileJob = task.spawn(function()
+                    while missileLoopRunning do
+                        local effectsFolder = Workspace:FindFirstChild("Effects")
+                        if effectsFolder then
+                            for _, v in ipairs(effectsFolder:GetChildren()) do
+                                if v.Name == "MissileBOOM" then
+                                    pcall(function() v:Destroy() end)
+                                end
+                            end
+                        end
+                        task.wait(0.1)
+                    end
+                end)
+                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启删除导弹特效", Duration = 2, Icon = "rbxassetid://128981664025072" })
+            end
+        else
+            missileLoopRunning = false
+            if missileJob then
+                task.cancel(missileJob)
+                missileJob = nil
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭删除导弹特效", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab1:CreateToggle({
+    Name = "自动重生",
+    CurrentValue = false,
+    Flag = "AutoRebirthToggle",
+    Ext = true,
+    Callback = function(Value)
+        if Value then
+            task.spawn(function()
+                while Value do
+                    local character = LocalPlayer.Character
+                    if character then
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        if humanoid and humanoid.Health < 10 and character:IsDescendantOf(Workspace:FindFirstChild("Living")) then
+                            humanoid.Health = 0
+                        end
+                    end
+                    task.wait(1)
+                end
+            end)
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动重生", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭自动重生", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local flyLoaded = false
+local flyScript = nil
+
+Tab2:CreateButton({
+    Name = "飞行",
+    Ext = true,
+    Callback = function()
+        if not flyLoaded then
+            flyLoaded = true
+            flyScript = loadstring(game:HttpGet("\104\116\116\112\115\58\47\47\114\97\119\46\103\105\116\104\117\98\117\115\101\114\99\111\110\116\101\110\116\46\99\111\109\47\77\65\75\69\56\54\54\47\102\107\99\120\102\103\47\114\101\102\115\47\104\101\97\100\115\47\109\97\105\110\47\37\69\57\37\65\51\37\57\69\37\69\56\37\65\49\37\56\67\46\108\117\97"))()
+            StarterGui:SetCore("SendNotification", { 
+                Title = "功能提示", 
+                Text = "已开启飞行", 
+                Duration = 2, 
+                Icon = "rbxassetid://128981664025072" 
+            })
+        else
+            flyLoaded = false
+            flyScript = nil
+            StarterGui:SetCore("SendNotification", { 
+                Title = "功能提示", 
+                Text = "已关闭飞行", 
+                Duration = 2, 
+                Icon = "rbxassetid://128981664025072" 
+            })
+        end
+    end,
+})
+
+local gSim = false
+Tab2:CreateToggle({
+    Name = "画质简化",
+    CurrentValue = false,
+    Flag = "GraphicsSimplifiedToggle",
+    Ext = true,
+    Callback = function(v)
+        gSim = v
+        if v then
+            Lighting.GlobalShadows = false
+            Lighting.ShadowSoftness = 0
+            Lighting.Brightness = 2
+            pcall(function()
+                Lighting.Bloom.Enabled = false
+                Lighting.Blur.Enabled = false
+                Lighting.SunRays.Enabled = false
+                Lighting.ColorCorrection.Enabled = false
+                Lighting.DepthOfField.Enabled = false
+            end)
+            settings().Rendering.QualityLevel = 1
+            pcall(function()
+                Workspace.Terrain.WaterWaveSize = 0
+                Workspace.Terrain.WaterWaveSpeed = 0
+                Workspace.Terrain.WaterReflectance = 0
+                Workspace.Terrain.WaterTransparency = 0.5
+            end)
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启画质简化 (流畅模式)", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            Lighting.GlobalShadows = true
+            Lighting.ShadowSoftness = 1
+            Lighting.Brightness = 1
+            pcall(function()
+                Lighting.Bloom.Enabled = true
+                Lighting.Blur.Enabled = true
+                Lighting.SunRays.Enabled = true
+                Lighting.ColorCorrection.Enabled = true
+                Lighting.DepthOfField.Enabled = true
+            end)
+            settings().Rendering.QualityLevel = 10
+            pcall(function()
+                Workspace.Terrain.WaterWaveSize = 5
+                Workspace.Terrain.WaterWaveSpeed = 10
+                Workspace.Terrain.WaterReflectance = 0.5
+                Workspace.Terrain.WaterTransparency = 0.5
+            end)
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭画质简化 (恢复原画质)", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab2:CreateToggle({
+    Name = "快速互动",
+    CurrentValue = false,
+    Flag = "QuickInteractToggle",
+    Ext = true,
+    Callback = function(v)
+        if v then
+            for _, p in ipairs(Workspace:GetDescendants()) do
+                if p:IsA("ProximityPrompt") then p.HoldDuration = 0 end
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启快速互动", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            for _, p in ipairs(Workspace:GetDescendants()) do
+                if p:IsA("ProximityPrompt") then p.HoldDuration = 1 end
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭快速互动", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local nvConn = nil
+Tab2:CreateToggle({
+    Name = "夜视",
+    CurrentValue = false,
+    Flag = "NightVisionToggle",
+    Ext = true,
+    Callback = function(v)
+        if v then
+            if not nvConn then nvConn = RunService.RenderStepped:Connect(function() Lighting.Ambient = Color3.new(1, 1, 1) end) end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启夜视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            if nvConn then nvConn:Disconnect(); nvConn = nil end
+            Lighting.Ambient = Color3.new(0, 0, 0)
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭夜视", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+local hNameEnabled = false
+local hNameConn = nil
+
+local function hideNameOnly()
+    if not hNameEnabled then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildWhichIsA("Humanoid")
+    if hum then hum.NameDisplayDistance = 0 end
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("BillboardGui") then
+            for _, child in pairs(obj:GetChildren()) do
+                if child:IsA("TextLabel") and (child.Text == LocalPlayer.Name or child.Text == LocalPlayer.DisplayName) then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+end
+
+local function restoreName()
+    if not hNameEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildWhichIsA("Humanoid")
+            if hum then hum.NameDisplayDistance = 10 end
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    if hNameEnabled then hideNameOnly() else restoreName() end
+end)
+
+Tab2:CreateToggle({
+    Name = "隐藏名字(客户端)",
+    CurrentValue = false,
+    Flag = "HideNameToggle",
+    Ext = true,
+    Callback = function(v)
+        hNameEnabled = v
+        if v then
+            hideNameOnly()
+            if not hNameConn then
+                hNameConn = task.spawn(function()
+                    while hNameEnabled do
+                        task.wait(0.5)
+                        hideNameOnly()
+                    end
+                end)
+            end
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启隐藏名字", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            hNameEnabled = false
+            if hNameConn then task.cancel(hNameConn); hNameConn = nil end
+            restoreName()
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭隐藏名字", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        end
+    end,
+})
+
+Tab2:CreateButton({
+    Name = "重置人物（自杀）",
+    Ext = true,
+    Callback = function()
+        local player = LocalPlayer
+        if player and player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.Health = 0
+            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已执行重置人物", Duration = 2, Icon = "rbxassetid://128981664025072" })
+        else
+            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到角色", Duration = 2, Icon = "rbxassetid://128981664025072" })
         end
     end,
 })
@@ -813,24 +1164,6 @@ if living then
     end)
 end
 
-local speedVal = 0
-Tab1:CreateInput({
-    Name = "CFrame移速",
-    PlaceholderText = "", 
-    RemoveTextAfterFocusLost = false,
-    Callback = function(t)
-        local n = tonumber(t)
-        if n then speedVal = n else speedVal = 0 end
-    end,
-})
-RunService.Stepped:Connect(function()
-    if speedVal > 0 and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local h = LocalPlayer.Character.HumanoidRootPart
-        local d = LocalPlayer.Character.Humanoid.MoveDirection
-        h.CFrame = h.CFrame + (d * speedVal)
-    end
-end)
-
 local teleS = false
 local fPos = Vector3.new(429.45, -620.79, 335.26)
 local rPos = Vector3.new(1490.10, 5.45, 1315.10)
@@ -843,268 +1176,6 @@ LocalPlayer.CharacterAdded:Connect(function(n)
         n.HumanoidRootPart.CFrame = CFrame.new(rPos)
     end
 end)
-
-Tab1:CreateToggle({
-    Name = "zuts远距离跟随",
-    CurrentValue = false,
-    Flag = "MonsterFollowToggle",
-    Ext = true,
-    Callback = function(v)
-        if v then
-            if not fConn then
-                fConn = RunService.Heartbeat:Connect(function()
-                    pcall(function()
-                        local c = LocalPlayer.Character
-                        if not c then return end
-                        local h = c:FindFirstChild("HumanoidRootPart")
-                        if not h then return end
-                        local l = Workspace:FindFirstChild("Living")
-                        if not l then return end
-                        local t = l:FindFirstChild("Zombie Upgraded Titan Speaker V2")
-                        if not t then return end
-                        local th = t:FindFirstChild("HumanoidRootPart")
-                        if not th then return end
-                        h.CFrame = CFrame.new(th.Position + Vector3.new(90, 15, -130), th.Position)
-                    end)
-                end)
-            end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启zuts远距离跟随", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            if fConn then fConn:Disconnect(); fConn = nil end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭zuts远距离跟随", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local fConn = nil
-
-local missileLoopRunning = false
-local missileJob = nil
-
-Tab1:CreateToggle({
-    Name = "删除导弹特效",
-    CurrentValue = false,
-    Flag = "DeleteMissileToggle",
-    Ext = true,
-    Callback = function(Value)
-        if Value then
-            if not missileLoopRunning then
-                missileLoopRunning = true
-                missileJob = task.spawn(function()
-                    while missileLoopRunning do
-                        local effectsFolder = Workspace:FindFirstChild("Effects")
-                        if effectsFolder then
-                            for _, v in ipairs(effectsFolder:GetChildren()) do
-                                if v.Name == "MissileBOOM" then
-                                    pcall(function() v:Destroy() end)
-                                end
-                            end
-                        end
-                        task.wait(0.1)
-                    end
-                end)
-                StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启删除导弹特效", Duration = 2, Icon = "rbxassetid://128981664025072" })
-            end
-        else
-            missileLoopRunning = false
-            if missileJob then
-                task.cancel(missileJob)
-                missileJob = nil
-            end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭删除导弹特效", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-Tab1:CreateToggle({
-    Name = "自动重生",
-    CurrentValue = false,
-    Flag = "AutoRebirthToggle",
-    Ext = true,
-    Callback = function(Value)
-        if Value then
-            task.spawn(function()
-                while Value do
-                    local character = LocalPlayer.Character
-                    if character then
-                        local humanoid = character:FindFirstChild("Humanoid")
-                        if humanoid and humanoid.Health < 10 and character:IsDescendantOf(Workspace:FindFirstChild("Living")) then
-                            humanoid.Health = 0
-                        end
-                    end
-                    task.wait(1)
-                end
-            end)
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启自动重生", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭自动重生", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local gSim = false
-Tab2:CreateToggle({
-    Name = "画质简化",
-    CurrentValue = false,
-    Flag = "GraphicsSimplifiedToggle",
-    Ext = true,
-    Callback = function(v)
-        gSim = v
-        if v then
-            Lighting.GlobalShadows = false
-            Lighting.ShadowSoftness = 0
-            Lighting.Brightness = 2
-            pcall(function()
-                Lighting.Bloom.Enabled = false
-                Lighting.Blur.Enabled = false
-                Lighting.SunRays.Enabled = false
-                Lighting.ColorCorrection.Enabled = false
-                Lighting.DepthOfField.Enabled = false
-            end)
-            settings().Rendering.QualityLevel = 1
-            pcall(function()
-                Workspace.Terrain.WaterWaveSize = 0
-                Workspace.Terrain.WaterWaveSpeed = 0
-                Workspace.Terrain.WaterReflectance = 0
-                Workspace.Terrain.WaterTransparency = 0.5
-            end)
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启画质简化 (流畅模式)", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            Lighting.GlobalShadows = true
-            Lighting.ShadowSoftness = 1
-            Lighting.Brightness = 1
-            pcall(function()
-                Lighting.Bloom.Enabled = true
-                Lighting.Blur.Enabled = true
-                Lighting.SunRays.Enabled = true
-                Lighting.ColorCorrection.Enabled = true
-                Lighting.DepthOfField.Enabled = true
-            end)
-            settings().Rendering.QualityLevel = 10
-            pcall(function()
-                Workspace.Terrain.WaterWaveSize = 5
-                Workspace.Terrain.WaterWaveSpeed = 10
-                Workspace.Terrain.WaterReflectance = 0.5
-                Workspace.Terrain.WaterTransparency = 0.5
-            end)
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭画质简化 (恢复原画质)", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-Tab2:CreateToggle({
-    Name = "快速互动",
-    CurrentValue = false,
-    Flag = "QuickInteractToggle",
-    Ext = true,
-    Callback = function(v)
-        if v then
-            for _, p in ipairs(Workspace:GetDescendants()) do
-                if p:IsA("ProximityPrompt") then p.HoldDuration = 0 end
-            end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启快速互动", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            for _, p in ipairs(Workspace:GetDescendants()) do
-                if p:IsA("ProximityPrompt") then p.HoldDuration = 1 end
-            end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭快速互动", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local nvConn = nil
-Tab2:CreateToggle({
-    Name = "夜视",
-    CurrentValue = false,
-    Flag = "NightVisionToggle",
-    Ext = true,
-    Callback = function(v)
-        if v then
-            if not nvConn then nvConn = RunService.RenderStepped:Connect(function() Lighting.Ambient = Color3.new(1, 1, 1) end) end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启夜视", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            if nvConn then nvConn:Disconnect(); nvConn = nil end
-            Lighting.Ambient = Color3.new(0, 0, 0)
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭夜视", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-local hNameEnabled = false
-local hNameConn = nil
-
-local function hideNameOnly()
-    if not hNameEnabled then return end
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hum = char:FindFirstChildWhichIsA("Humanoid")
-    if hum then hum.NameDisplayDistance = 0 end
-    for _, obj in pairs(char:GetDescendants()) do
-        if obj:IsA("BillboardGui") then
-            for _, child in pairs(obj:GetChildren()) do
-                if child:IsA("TextLabel") and (child.Text == LocalPlayer.Name or child.Text == LocalPlayer.DisplayName) then
-                    obj:Destroy()
-                end
-            end
-        end
-    end
-end
-
-local function restoreName()
-    if not hNameEnabled then
-        local char = LocalPlayer.Character
-        if char then
-            local hum = char:FindFirstChildWhichIsA("Humanoid")
-            if hum then hum.NameDisplayDistance = 10 end
-        end
-    end
-end
-
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5)
-    if hNameEnabled then hideNameOnly() else restoreName() end
-end)
-
-Tab2:CreateToggle({
-    Name = "隐藏名字(客户端)",
-    CurrentValue = false,
-    Flag = "HideNameToggle",
-    Ext = true,
-    Callback = function(v)
-        hNameEnabled = v
-        if v then
-            hideNameOnly()
-            if not hNameConn then
-                hNameConn = task.spawn(function()
-                    while hNameEnabled do
-                        task.wait(0.5)
-                        hideNameOnly()
-                    end
-                end)
-            end
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已开启隐藏名字", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            hNameEnabled = false
-            if hNameConn then task.cancel(hNameConn); hNameConn = nil end
-            restoreName()
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已关闭隐藏名字", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
-
-Tab2:CreateButton({
-    Name = "重置人物（自杀）",
-    Ext = true,
-    Callback = function()
-        local player = LocalPlayer
-        if player and player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.Health = 0
-            StarterGui:SetCore("SendNotification", { Title = "功能提示", Text = "已执行重置人物", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        else
-            StarterGui:SetCore("SendNotification", { Title = "错误提示", Text = "未找到角色", Duration = 2, Icon = "rbxassetid://128981664025072" })
-        end
-    end,
-})
 
 Tab4:CreateSection("特殊泰坦")
 
